@@ -1,0 +1,92 @@
+services:
+
+  web: # Web Interface
+    image: killrvideo/killrvideo-web:3
+    ports:
+      - "3000:3000" # Exposes port to be available externally
+    depends_on:
+      - backend # Needs Backend to be running
+    environment:
+      KILLRVIDEO_LOGGING_LEVEL: debug # More logging
+    labels:
+      kompose.service.type: nodeport # Adds a label for Kompose to expose service externally
+
+  backend: # KillrVideo Backend 
+    image: killrvideo/killrvideo-java:3.0.1
+    ports:
+      - "50101:50101" # Exposes port to be available. Kompose tool needs that to create a k8s service and make backend available for other services.
+    depends_on:
+      dse:
+        condition: service_started
+      dse-config:
+        condition: service_completed_successfully  # Wait for schema bootstrap so keyspace killrvideo exists
+    environment:
+      KILLRVIDEO_LOGGING_LEVEL: debug # More logging
+      KILLRVIDEO_DSE_CONTACT_POINTS: dse
+      KILLRVIDEO_KAFKA_BOOTSTRAP_SERVERS: kafka:9092  # Optional: pub-sub events (full diagram)
+
+  studio:  # Datastax Studio provides convenient web interface to work directly with the Apache Cassandra or DataStax Enterprise
+    image: datastax/dse-studio:6.7.0
+    ports:
+      - "9091:9091" # Exposes port to be available externally
+    depends_on:
+      - dse # Needs DSE to be running
+    environment:
+      DS_LICENSE: accept
+    labels:
+      kompose.service.type: nodeport # Adds a label for Kompose to expose service externally
+
+  dse: # DataStax Enterprise Database
+    image: datastax/dse-server:6.7.0
+    command: [ -s -g ] # Run with Search and Graph capabilities enabled
+    ports: # Exposes ports to be available. Kompose tool needs that to create a k8s service and make backend available for other services.
+      - "9042:9042" # Exposes DSE port
+      - "8983:8983" # Exposes DSE Search port
+      - "8182:8182" # Exposes DSE Graph port
+    environment:
+      DS_LICENSE: accept # Accept licence on start
+    volumes:
+      - dse-data:/var/lib/cassandra  # Persist data so videos/latest_videos survive 'docker compose down'
+    cap_add:
+      - IPC_LOCK # Allow DSE to lock memory with mlock
+    ulimits:
+      memlock: -1
+
+  dse-config: # One-Time Bootstrap Container, configures DSE to have required keyspaces etc.
+    image: killrvideo/killrvideo-dse-config:3
+    depends_on:
+      - dse # Needs DSE to be running
+    restart: on-failure # Kompose needs that to create dse-config as a pod, not a deployment. DSE-Config deployment is not needed as we run it only once.
+
+  generator: # Sample Data Generator, imitates behaviour of users on the killrVideo website. Adds comments and rates videos, upload new videos and so on.
+    image: killrvideo/killrvideo-generator:3
+    depends_on:
+      - backend # Needs Backend to be running
+      - dse-config # Wait for schema bootstrap so DSE is ready and keyspaces exist
+    restart: on-failure # Retry if DSE wasn't ready yet (e.g. on first bring-up)
+    environment:
+      KILLRVIDEO_LOGGING_LEVEL: debug # More logging
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+
+volumes:
+  dse-data: {}  # Persists DSE/Cassandra data across 'docker compose down' and 'up'

@@ -1,0 +1,21 @@
+[
+  {
+    "targets": [
+      "cassandra:9103",
+      "cassandra2:9103",
+      "cassandra3:9103",
+      "cassandra-dc2:9103",
+      "cassandra4:9103",
+      "cassandra5:9103",
+      "cassandra-standalone:9103",
+      "dc2r2-node1:9103",
+      "dc2r2-node2:9103",
+      "dc2r2-node3:9103",
+      "dc2r2-node4:9103",
+      "dc1-node1:9103"
+    ],
+    "labels": {
+      
+    }
+  }
+]

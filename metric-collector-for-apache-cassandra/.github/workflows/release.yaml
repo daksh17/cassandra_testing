@@ -1,0 +1,31 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs: 
+  release:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build Metric Collector
+        run: |
+          RELEASE_VERSION="${GITHUB_REF##*/}"
+          RELEASE_VERSION="${RELEASE_VERSION:1}"
+          ./make_package.sh "$RELEASE_VERSION"
+
+          ./make_package.sh "$RELEASE_VERSION" 4.1-beta1
+
+          cd package-${RELEASE_VERSION}
+          assets=()
+          for asset in *.{gz,zip}; do
+            assets+=("$asset")
+          done
+      
+          gh release create "v$RELEASE_VERSION" "${assets[@]}" -n "v$RELEASE_VERSION"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      

@@ -1,0 +1,97 @@
+###
+### Metric Collector for Apache Cassandra Configuration
+###
+
+### The frequency that metrics are reported to the Metrics Collector.
+### Default - 30s
+metric_sampling_interval_in_seconds: 30
+
+#####################################################################
+### List of metrics to allow or deny
+###
+### pattern: regex pattern to search, can be a sub-match or full match
+### scope: 'global' will affect all data. 'datalog' will only affect the datalog
+### policy: 'allow' or 'deny'
+### The last applicable rule wins, which works similarly to iptables firewall rules:
+###   - A metric that would be denied by a rule and then allowed by another would be allowed.
+###   - A metric that would be allowed by a rule and then denied by another would be denied.
+### This allows to apply efficient filters on table level metrics for example and allow just a 
+### subset of those to match the dashboards requirements.
+### Filter rules are applied both on the name of the Cassandra metric and a cleaned/formatted
+### version of the metric name:
+###   - org.apache.cassandra.metrics.Table.LiveSSTableCount
+###   - org.apache.cassandra.metrics.table.live_ss_table_count
+### In the event the metric name and the cleaned metric name result in a differing policy,
+### the deny policy would be applied.
+### Default - allow all
+
+# Below sample rules allow to extract only a subset of table level metrics and lighten the load
+# for clusters with 100s of tables.
+#filtering_rules:
+#  - policy: deny
+#    pattern: org.apache.cassandra.metrics.table
+#    scope: global
+#  - policy: allow
+#    pattern: org.apache.cassandra.metrics.table.live_ss_table_count
+#    scope: global
+#  - policy: allow
+#    pattern: org.apache.cassandra.metrics.Table.LiveSSTableCount
+#    scope: global
+#  - policy: allow
+#    pattern: org.apache.cassandra.metrics.table.live_disk_space_used
+#    scope: global
+#  - policy: allow
+#    pattern: org.apache.cassandra.metrics.table.LiveDiskSpaceUsed
+#    scope: global
+#  - policy: allow
+#    pattern: org.apache.cassandra.metrics.Table.Pending
+#    scope: global
+#  - policy: allow
+#    pattern: org.apache.cassandra.metrics.Table.Memtable
+#    scope: global
+#  - policy: allow
+#    pattern: org.apache.cassandra.metrics.Table.Compaction
+#    scope: global
+#  - policy: allow
+#    pattern: org.apache.cassandra.metrics.table.read
+#    scope: global
+#  - policy: allow
+#    pattern: org.apache.cassandra.metrics.table.write
+#    scope: global
+#  - policy: allow
+#    pattern: org.apache.cassandra.metrics.table.range
+#    scope: global
+#  - policy: allow
+#    pattern: org.apache.cassandra.metrics.table.coordinator
+#    scope: global
+#  - policy: allow
+#    pattern: org.apache.cassandra.metrics.table.dropped_mutations
+#    scope: global
+#  - policy: allow
+#    pattern: org.apache.cassandra.metrics.table.DroppedMutations
+#    scope: global
+
+
+#######################################################################
+### Disk Logging of Metrics and Events (DataLog)
+###
+### The default mode enables metrics collection and diagnostic events
+### to be stored on local on disk in the location defined by data_dir.
+###
+### This data can be used to help diagnose cluster / node level problems
+### by DataStax support: https://www.datastax.com/keepcalm
+###
+### The raw data can be parsed using the included datalog-parser.py script
+write_to_disk_enabled: true
+
+### The maximum number amount of on disk data to store in MB
+### Default - 5000
+#data_dir_max_size_in_mb: 5000
+
+### Directory to store collected metrics.
+### Default directory is Cassandra data directory. You can customize the location by uncomment and correct data_dir
+#data_dir: /var/lib/cassandra
+
+### Directory to store logs for collected metrics. The log file is cassandra-collectd.log
+### Default directory is Cassandra log directory. You can customize the location by uncomment and correct log_dir
+#log_dir: /var/log/cassandra

@@ -1,0 +1,10 @@
+[
+  {
+    "targets": [
+      "cassandra:9103",
+      "cassandra2:9103",
+      "cassandra3:9103"
+    ],
+    "labels": {}
+  }
+]

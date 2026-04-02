@@ -1,0 +1,8 @@
+.idea
+__pycache__
+venv
+.project
+.settings
+.classpath
+target
+dependency-reduced-pom.xml

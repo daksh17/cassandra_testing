@@ -1,0 +1,59 @@
+package com.datastax.mcac.insights.metrics;
+
+import java.util.Map;
+import java.util.Optional;
+
+import com.datastax.mcac.insights.InsightMetadata;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonCreator;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonIgnore;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonProperty;
+
+public class Gauge extends Metric
+{
+    @JsonCreator
+    public Gauge(
+            @JsonProperty("name") String name,
+            @JsonProperty("timestamp") Long timestamp,
+            @JsonProperty("tags") Map<String, String> tags,
+            @JsonProperty("value") Number value
+    )
+    {
+        super(name, timestamp, tags, InsightMetadata.InsightType.GAUGE, new Data(value));
+    }
+
+    public Gauge(
+            String name,
+            Long timestamp,
+            Number value
+    )
+    {
+        super(name, timestamp, null, InsightMetadata.InsightType.GAUGE, new Data(value));
+    }
+
+    @JsonIgnore
+    public Number getValue()
+    {
+        Number value = ((Data) data).value;
+        return value;
+    }
+
+    private static final class Data
+    {
+        @JsonProperty("value")
+        public final Number value;
+
+        @JsonCreator
+        public Data(@JsonProperty("value") Number value)
+        {
+            this.value = value;
+        }
+
+        @Override
+        public String toString()
+        {
+            return "Data{"
+                    + "value=" + value
+                    + '}';
+        }
+    }
+}

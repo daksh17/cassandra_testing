@@ -1,0 +1,41 @@
+// Example: how one Cassandra row (latest_videos) maps to a gRPC response message.
+// This is for reference only; the real definitions are in protos/video-catalog/video_catalog_service.proto
+// and protos/common/common_types.proto.
+//
+// CASSANDRA TABLE: killrvideo.latest_videos
+// Columns: yyyymmdd (partition key), added_date, videoid, userid, name, preview_image_location
+//
+// FLOW: Backend SELECTs rows from latest_videos → maps each row to VideoPreview →
+//      builds GetLatestVideoPreviewsResponse → serializes to protobuf → client (grpcurl) decodes to JSON.
+
+syntax = "proto3";
+
+package example.cassandra.to.response;
+
+// Uuid is a common type (see protos/common/common_types.proto)
+message Uuid {
+  string value = 1;
+}
+
+// One row in latest_videos becomes one VideoPreview in the response.
+// Cassandra column          →  Proto field
+// ─────────────────────────────────────────────────────────────
+// videoid                   →  video_id (Uuid)
+// added_date                →  added_date (Timestamp)
+// name                      →  name (string)
+// preview_image_location    →  preview_image_location (string)
+// userid                    →  user_id (Uuid)
+// (yyyymmdd is partition key; not sent in response, used only for querying)
+message VideoPreview {
+  Uuid video_id = 1;
+  string added_date = 2;  // in real proto this is google.protobuf.Timestamp
+  string name = 3;
+  string preview_image_location = 4;
+  Uuid user_id = 5;
+}
+
+// Response: list of VideoPreview (one per row from Cassandra) + optional paging state
+message GetLatestVideoPreviewsResponse {
+  repeated VideoPreview video_previews = 1;  // each element = one row from latest_videos
+  string paging_state = 2;
+}

@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package killrvideo.user_management;
+option csharp_namespace = "KillrVideo.UserManagement";
+
+import "common/common_types.proto";
+
+service UserManagementService {
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+  rpc VerifyCredentials(VerifyCredentialsRequest) returns (VerifyCredentialsResponse);
+  rpc GetUserProfile(GetUserProfileRequest) returns (GetUserProfileResponse);
+}
+
+message CreateUserRequest {
+  killrvideo.common.Uuid user_id = 1;
+  string first_name = 2;
+  string last_name = 3;
+  string email = 4;
+  string password = 5;
+}
+
+message CreateUserResponse {}
+
+message VerifyCredentialsRequest {
+  string email = 1;
+  string password = 2;
+}
+message VerifyCredentialsResponse {
+  killrvideo.common.Uuid user_id = 1;
+}
+
+message GetUserProfileRequest {
+  repeated killrvideo.common.Uuid user_ids = 1;
+}
+message GetUserProfileResponse {
+  repeated UserProfile profiles = 1;
+}
+
+message UserProfile {
+  killrvideo.common.Uuid user_id = 1;
+  string first_name = 2;
+  string last_name = 3;
+  string email = 4;
+}

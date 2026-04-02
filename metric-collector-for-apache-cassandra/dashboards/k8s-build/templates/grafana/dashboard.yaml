@@ -1,0 +1,11 @@
+---
+apiVersion: integreatly.org/v1alpha1
+kind: GrafanaDashboard
+metadata:
+  labels:
+    app: grafana
+  name: empty
+spec:
+  url: ""
+  json: "{}"
+  name: empty.json
