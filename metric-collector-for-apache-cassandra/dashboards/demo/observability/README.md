@@ -31,7 +31,7 @@ docker compose restart prometheus
 ## Grafana
 
 - Anonymous **Admin** is enabled in **`../../grafana/grafana.ini`** for the demo.
-- Dashboards are file-provisioned from **`../../grafana/generated-dashboards/`** (includes Cassandra overview, postgres-kafka overview, Mongo tic-tac-toe overview, etc.).
+- Dashboards are file-provisioned from **`../../grafana/generated-dashboards/`** (includes Cassandra overview, postgres-kafka overview, Mongo tic-tac-toe overview + detailed sharding/storage, etc.).
 - Datasource UID **`prometheus`** (see `prometheus-datasource.yaml`).
 
 ## Typical commands

@@ -339,10 +339,14 @@ Metrics path: **mongodb-exporter** (scraped by Prometheus every 15s) → **Prome
    - Run: `up{job="mongodb"}`. You should see `1` for `instance="mongodb-exporter:9216"`.
    - Then try: `mongodb_connections` or `mongodb_opcounters_insert_total`. If these return points, metrics are in Prometheus.
 
-4. **Dashboard variables (job / instance)**
+4. **Label / instance filter**
+   - The MongoDB tic/tac/toe Grafana dashboards select the sharded exporter with **`{job="mongodb",instance="mongodb-exporter:9216"}`** (the service name inside the demo Compose network). That matches metrics even if your Prometheus does not set **`mongo_cluster`** (or uses extra labels like `cluster` / `shard_topology`).
+   - If you scrape the same exporter under a **different** `instance` (e.g. `localhost:9216`), panels will be empty until you **edit the dashboard queries** to that instance or relabel in Prometheus to `instance="mongodb-exporter:9216"`.
+
+5. **Dashboard variables (job / instance)**
    - If the dashboard has an **environment**, **job**, or **instance** dropdown, set **job** to `mongodb` and **instance** to `mongodb-exporter:9216` (or "All" if available).
 
-5. **Time range**
+6. **Time range**
    - Use **Last 15 minutes** or **Last 5 minutes** so recent scrapes are included; "Today so far" can miss data right after startup.
 
 **TLP stress – help / list workloads / run (use new container)**
