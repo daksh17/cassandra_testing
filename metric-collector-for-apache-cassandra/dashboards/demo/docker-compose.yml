@@ -1,7 +1,9 @@
-# dashboards/demo — single compose file for Cassandra, Kafka/ZK/Connect, Postgres, Mongo sharded,
-# Redis 7, OpenSearch, Prometheus, Grafana, exporters. Per-area docs (same directory):
-#   cassandra/README.md · kafka/README.md · observability/README.md · redis/README.md · opensearch/README.md
-#   postgres-kafka/README.md · mongo-kafka/README.md · mongo-sharded/README.md
+# dashboards/demo — single compose file for Cassandra (3-node Test Cluster), Kafka/ZK/Connect, Postgres, Mongo sharded,
+# Redis 7, OpenSearch, Prometheus, Grafana, exporters. `docker compose up` starts all services (no profiles).
+# Recommended first run: ./start-full-stack.sh (sets PROJECT_VERSION, builds mcac + kafka-connect + hub-demo-ui).
+# Not to be confused with ../docker-compose.yaml (dashboards root) — that file is Prometheus+Grafana only.
+# Per-area docs: cassandra/README.md · kafka/README.md · observability/README.md · redis/README.md ·
+#   opensearch/README.md · postgres-kafka/README.md · mongo-kafka/README.md · mongo-sharded/README.md
 # Index: README.md
 services:
   prometheus:
@@ -31,9 +33,12 @@ services:
       - "GF_INSTALL_PLUGINS=grafana-polystat-panel"
       - "GF_AUTH_ANONYMOUS_ENABLED=true"
       - "GF_AUTH_ANONYMOUS_ORG_ROLE=Admin"
+  # One-shot: copies built agent JAR into mcac_data volume then exits. All Cassandra services depend on this
+  # so ${PROJECT_VERSION} resolves to a real file under /mcac/lib on first start.
   mcac:
     build: ../../
     platform: linux/amd64
+    restart: "no"
     volumes:
       - "mcac_data:/mcac"
 
@@ -43,7 +48,7 @@ services:
     ports:
       - "9104:9104"
     environment:
-      - CASSANDRA_HOSTS=cassandra,cassandra2,cassandra3,cassandra4,cassandra5
+      - CASSANDRA_HOSTS=cassandra,cassandra2,cassandra3
       - NODETOOL_EXPORTER_PORT=9104
     networks:
       - demo_net
@@ -80,6 +85,9 @@ services:
     volumes:
       - "mcac_data:/mcac"
       - "../../config:/mcac/config:ro"
+    depends_on:
+      mcac:
+        condition: service_completed_successfully
     environment:
       MAX_HEAP_SIZE: "500M"
       HEAP_NEWSIZE: "100M"
@@ -153,270 +161,6 @@ services:
       cassandra2:
         condition: service_healthy
 
-  cassandra4:
-    image: cassandra:4.0
-    platform: linux/amd64
-    ports:
-      - "9501"
-      - "19445:9042"
-      - "7000"
-      - "9103"
-    volumes:
-      - "mcac_data:/mcac"
-      - "../../config:/mcac/config:ro"
-    networks:
-      - demo_net
-    healthcheck:
-      test: ["CMD", "cqlsh"]
-      interval: 5s
-      timeout: 10s
-      retries: 60
-    environment:
-      MAX_HEAP_SIZE: "500M"
-      HEAP_NEWSIZE: "100M"
-      LOCAL_JMX: "no"
-      JVM_EXTRA_OPTS: '-javaagent:/mcac/lib/datastax-mcac-agent-${PROJECT_VERSION}.jar -Dcassandra.consistent.rangemovement=false -Dcassandra.ring_delay_ms=100 -Dcassandra.jmx.remote.authenticate=false -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false'
-      CASSANDRA_NUM_TOKENS: 8
-      CASSANDRA_SEEDS: "cassandra, cassandra2"
-    depends_on:
-      cassandra3:
-        condition: service_healthy
-
-  # Node 5: set auto_bootstrap true to stream data from the ring, or false to join without streaming.
-  # With CASSANDRA_NUM_TOKENS: 8, tokens are auto-allocated (no initial_token needed).
-  cassandra5:
-    image: cassandra:4.0
-    platform: linux/amd64
-    ports:
-      - "9501"
-      - "19446:9042"
-      - "7000"
-      - "9103"
-    volumes:
-      - "mcac_data:/mcac"
-      - "../../config:/mcac/config:ro"
-    networks:
-      - demo_net
-    healthcheck:
-      test: ["CMD", "cqlsh"]
-      interval: 5s
-      timeout: 10s
-      retries: 60
-    environment:
-      MAX_HEAP_SIZE: "500M"
-      HEAP_NEWSIZE: "100M"
-      LOCAL_JMX: "no"
-      JVM_EXTRA_OPTS: '-javaagent:/mcac/lib/datastax-mcac-agent-${PROJECT_VERSION}.jar -Dcassandra.consistent.rangemovement=false -Dcassandra.ring_delay_ms=100 -Dcassandra.jmx.remote.authenticate=false -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcassandra.auto_bootstrap=true'
-      CASSANDRA_NUM_TOKENS: 8
-      CASSANDRA_SEEDS: "cassandra, cassandra2"
-    depends_on:
-      cassandra4:
-        condition: service_healthy
-
-  # Standalone cluster: single node (not part of the 5-node "Test Cluster"). Cluster name "Standalone".
-  cassandra-standalone:
-    image: cassandra:4.0
-    platform: linux/amd64
-    ports:
-      - "19447:9042"
-      - "7000"
-      - "9103"
-    volumes:
-      - "mcac_data:/mcac"
-      - "../../config:/mcac/config:ro"
-    networks:
-      - demo_net
-    healthcheck:
-      test: ["CMD", "cqlsh"]
-      interval: 5s
-      timeout: 10s
-      retries: 60
-    environment:
-      MAX_HEAP_SIZE: "500M"
-      HEAP_NEWSIZE: "100M"
-      LOCAL_JMX: "no"
-      JVM_EXTRA_OPTS: '-javaagent:/mcac/lib/datastax-mcac-agent-${PROJECT_VERSION}.jar -Dcassandra.consistent.rangemovement=false -Dcassandra.ring_delay_ms=100 -Dcassandra.jmx.remote.authenticate=false -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcassandra.incremental_backups=true'
-      CASSANDRA_NUM_TOKENS: 8
-      CASSANDRA_CLUSTER_NAME: "Standalone"
-      CASSANDRA_SEEDS: "cassandra-standalone"
-
-  # Secondary cluster: 3-node cluster, cluster name "Secondary". DC=datacenter2, rack=rack2.
-  # Uses GossipingPropertyFileSnitch + secondary-rackdc.properties. Service names: dc2r2-node1/2/3.
-  dc2r2-node1:
-    image: cassandra:4.0
-    platform: linux/amd64
-    ports:
-      - "19450:9042"
-      - "7000"
-      - "9103"
-    volumes:
-      - "mcac_data:/mcac"
-      - "../../config:/mcac/config:ro"
-      - "./secondary-rackdc.properties:/etc/cassandra/cassandra-rackdc.properties"
-      - "./dc2r2-node1.yaml:/etc/cassandra/cassandra.yaml"
-    networks:
-      - demo_net
-    healthcheck:
-      test: ["CMD", "cqlsh", "-u", "cassandra", "-p", "cassandra", "-e", "DESCRIBE CLUSTER"]
-      interval: 5s
-      timeout: 10s
-      retries: 60
-    environment:
-      MAX_HEAP_SIZE: "500M"
-      HEAP_NEWSIZE: "100M"
-      LOCAL_JMX: "no"
-      CASSANDRA_AUTHENTICATOR: "PasswordAuthenticator"
-      CASSANDRA_AUTHORIZER: "CassandraAuthorizer"
-      JVM_EXTRA_OPTS: '-javaagent:/mcac/lib/datastax-mcac-agent-${PROJECT_VERSION}.jar -Dcassandra.consistent.rangemovement=false -Dcassandra.ring_delay_ms=100 -Dcassandra.jmx.remote.authenticate=false -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcassandra.endpoint_snitch=org.apache.cassandra.locator.GossipingPropertyFileSnitch -Dcassandra.ignore_dc=true -Dcassandra.ignore_rack=true'
-      CASSANDRA_NUM_TOKENS: 8
-      CASSANDRA_CLUSTER_NAME: "Secondary"
-      CASSANDRA_SEEDS: "dc2r2-node1,dc2r2-node2,dc2r2-node3"
-      CASSANDRA_ENDPOINT_SNITCH: "org.apache.cassandra.locator.GossipingPropertyFileSnitch"
-
-  # Secondary cluster node 2
-  dc2r2-node2:
-    image: cassandra:4.0
-    platform: linux/amd64
-    ports:
-      - "19451:9042"
-      - "7000"
-      - "9103"
-    volumes:
-      - "mcac_data:/mcac"
-      - "../../config:/mcac/config:ro"
-      - "./secondary-rackdc.properties:/etc/cassandra/cassandra-rackdc.properties"
-      - "./dc2r2-node2.yaml:/etc/cassandra/cassandra.yaml"
-    networks:
-      - demo_net
-    healthcheck:
-      test: ["CMD", "cqlsh", "-u", "cassandra", "-p", "cassandra", "-e", "DESCRIBE CLUSTER"]
-      interval: 5s
-      timeout: 10s
-      retries: 60
-    environment:
-      MAX_HEAP_SIZE: "500M"
-      HEAP_NEWSIZE: "100M"
-      LOCAL_JMX: "no"
-      CASSANDRA_AUTHENTICATOR: "PasswordAuthenticator"
-      CASSANDRA_AUTHORIZER: "CassandraAuthorizer"
-      JVM_EXTRA_OPTS: '-javaagent:/mcac/lib/datastax-mcac-agent-${PROJECT_VERSION}.jar -Dcassandra.consistent.rangemovement=false -Dcassandra.ring_delay_ms=100 -Dcassandra.jmx.remote.authenticate=false -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcassandra.endpoint_snitch=org.apache.cassandra.locator.GossipingPropertyFileSnitch -Dcassandra.ignore_dc=true -Dcassandra.ignore_rack=true'
-      CASSANDRA_NUM_TOKENS: 8
-      CASSANDRA_CLUSTER_NAME: "Secondary"
-      CASSANDRA_SEEDS: "dc2r2-node1,dc2r2-node2"
-      CASSANDRA_ENDPOINT_SNITCH: "org.apache.cassandra.locator.GossipingPropertyFileSnitch"
-    depends_on:
-      dc2r2-node1:
-        condition: service_healthy
-
-  dc2r2-node3:
-    image: cassandra:4.0
-    platform: linux/amd64
-    ports:
-      - "19452:9042"
-      - "7000"
-      - "9103"
-    volumes:
-      - "mcac_data:/mcac"
-      - "../../config:/mcac/config:ro"
-      - "./secondary-rackdc.properties:/etc/cassandra/cassandra-rackdc.properties"
-      - "./dc2r2-node3.yaml:/etc/cassandra/cassandra.yaml"
-    networks:
-      - demo_net
-    healthcheck:
-      test: ["CMD", "cqlsh", "-u", "cassandra", "-p", "cassandra", "-e", "DESCRIBE CLUSTER"]
-      interval: 5s
-      timeout: 10s
-      retries: 60
-    environment:
-      MAX_HEAP_SIZE: "500M"
-      HEAP_NEWSIZE: "100M"
-      LOCAL_JMX: "no"
-      CASSANDRA_AUTHENTICATOR: "PasswordAuthenticator"
-      CASSANDRA_AUTHORIZER: "CassandraAuthorizer"
-      JVM_EXTRA_OPTS: '-javaagent:/mcac/lib/datastax-mcac-agent-${PROJECT_VERSION}.jar -Dcassandra.consistent.rangemovement=false -Dcassandra.ring_delay_ms=100 -Dcassandra.jmx.remote.authenticate=false -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcassandra.endpoint_snitch=org.apache.cassandra.locator.GossipingPropertyFileSnitch -Dcassandra.ignore_dc=true -Dcassandra.ignore_rack=true'
-      CASSANDRA_NUM_TOKENS: 8
-      CASSANDRA_CLUSTER_NAME: "Secondary"
-      CASSANDRA_SEEDS: "dc2r2-node1,dc2r2-node2"
-      CASSANDRA_ENDPOINT_SNITCH: "org.apache.cassandra.locator.GossipingPropertyFileSnitch"
-    depends_on:
-      dc2r2-node2:
-        condition: service_healthy
-
-  # dc2r2-node4: standalone (datacenter1/rack2) by default. To join Secondary cluster (datacenter2/rack2),
-  # set CASSANDRA_CLUSTER_NAME: "Secondary", CASSANDRA_SEEDS: "dc2r2-node1,dc2r2-node2",
-  # CASSANDRA_DC: "datacenter2", CASSANDRA_RACK: "rack2", mount secondary-rackdc.properties, then stop/rm/up (clear data).
-  dc2r2-node4:
-    image: cassandra:4.0
-    platform: linux/amd64
-    ports:
-      - "19453:9042"
-      - "7000"
-      - "9103"
-    volumes:
-      - "mcac_data:/mcac"
-      - "../../config:/mcac/config:ro"
-      - "./secondary-rackdc.properties:/etc/cassandra/cassandra-rackdc.properties"
-      - "./dc2r2-node4.yaml:/etc/cassandra/cassandra.yaml"
-    networks:
-      - demo_net
-    healthcheck:
-      test: ["CMD", "cqlsh", "-u", "cassandra", "-p", "cassandra", "-e", "DESCRIBE CLUSTER"]
-      interval: 5s
-      timeout: 10s
-      retries: 60
-    environment:
-      MAX_HEAP_SIZE: "500M"
-      HEAP_NEWSIZE: "100M"
-      LOCAL_JMX: "no"
-      CASSANDRA_AUTHENTICATOR: "PasswordAuthenticator"
-      CASSANDRA_AUTHORIZER: "CassandraAuthorizer"
-      JVM_EXTRA_OPTS: '-javaagent:/mcac/lib/datastax-mcac-agent-${PROJECT_VERSION}.jar -Dcassandra.consistent.rangemovement=false -Dcassandra.ring_delay_ms=100 -Dcassandra.jmx.remote.authenticate=false -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false'
-      CASSANDRA_NUM_TOKENS: 8
-      CASSANDRA_CLUSTER_NAME: "Secondary"
-      CASSANDRA_SEEDS: "dc2r2-node1,dc2r2-node2"
-      CASSANDRA_DC: "datacenter2"
-      CASSANDRA_RACK: "rack2"
-      CASSANDRA_ENDPOINT_SNITCH: "org.apache.cassandra.locator.GossipingPropertyFileSnitch"
-
-  # Standalone node in datacenter1/rack1; can be joined to Secondary cluster later (see README).
-  # Mounting a cassandra.yaml with auto_bootstrap: false so the node joins without streaming
-  # (JVM -Dcassandra.auto_bootstrap=false is not always applied by the image).
-  # If node was down and fails with "address already exists", add -Dcassandra.replace_address_first_boot=192.168.97.10
-  # and -Dcassandra.allow_unsafe_replace=true (required when replacing without bootstrap). Remove both after node is back up.
-  dc1-node1:
-    image: cassandra:4.0
-    platform: linux/amd64
-    ports:
-      - "19454:9042"
-      - "7000"
-      - "9103"
-    volumes:
-      - "mcac_data:/mcac"
-      - "../../config:/mcac/config:ro"
-      - "./secondary-rackdc.properties:/etc/cassandra/cassandra-rackdc.properties"
-      # Use a yaml that has auto_bootstrap: false; entrypoint still overwrites seeds, cluster_name, etc.
-      - "./dc1-node1.yaml:/etc/cassandra/cassandra.yaml"
-    networks:
-      - demo_net
-    healthcheck:
-      test: ["CMD", "cqlsh", "-u", "cassandra", "-p", "cassandra", "-e", "DESCRIBE CLUSTER"]
-      interval: 5s
-      timeout: 10s
-      retries: 60
-    environment:
-      MAX_HEAP_SIZE: "500M"
-      HEAP_NEWSIZE: "100M"
-      LOCAL_JMX: "no"
-      CASSANDRA_AUTHENTICATOR: "PasswordAuthenticator"
-      CASSANDRA_AUTHORIZER: "CassandraAuthorizer"
-      JVM_EXTRA_OPTS: '-javaagent:/mcac/lib/datastax-mcac-agent-${PROJECT_VERSION}.jar -Dcassandra.consistent.rangemovement=false -Dcassandra.ring_delay_ms=100 -Dcassandra.jmx.remote.authenticate=false -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcassandra.auto_bootstrap=false'
-      CASSANDRA_NUM_TOKENS: 8
-      CASSANDRA_CLUSTER_NAME: "Secondary"
-      CASSANDRA_SEEDS: "dc2r2-node1,dc2r2-node2"
-      CASSANDRA_DC: "datacenter2"
-      CASSANDRA_RACK: "rack2"
-      CASSANDRA_ENDPOINT_SNITCH: "org.apache.cassandra.locator.GossipingPropertyFileSnitch"
-
   stress:
     image: thelastpickle/tlp-stress:latest
     platform: linux/amd64
@@ -427,20 +171,6 @@ services:
     environment:
       - "TLP_STRESS_CASSANDRA_HOST=cassandra"
     command: "run KeyValue --rate 30 -d 1d -r .8"
-    depends_on:
-      cassandra2:
-        condition: service_healthy
-
-  stress2:
-    image: thelastpickle/tlp-stress:latest
-    platform: linux/amd64
-    ports:
-      - "9500"
-    networks:
-      - demo_net
-    environment:
-      - "TLP_STRESS_CASSANDRA_HOST=cassandra"
-    command: "run BasicTimeSeries --rate 20 -d 1d -r .9"
     depends_on:
       cassandra2:
         condition: service_healthy
@@ -685,8 +415,29 @@ services:
       timeout: 10s
       retries: 40
 
+  # Config replica set MUST have a primary before shard mongods start (otherwise shards with
+  # persisted metadata block in initandlisten while healthcheck never passes — deadlock).
+  mongo-config-init-rs:
+    image: mongo:7.0
+    depends_on:
+      mongo-config1:
+        condition: service_healthy
+      mongo-config2:
+        condition: service_healthy
+      mongo-config3:
+        condition: service_healthy
+    volumes:
+      - "./mongo-sharded/init-config-replica-set.sh:/init-config-replica-set.sh:ro"
+    entrypoint: ["bash", "/init-config-replica-set.sh"]
+    networks:
+      - demo_net
+    restart: "no"
+
   mongo-shard-tic:
     image: mongo:7.0
+    depends_on:
+      mongo-config-init-rs:
+        condition: service_completed_successfully
     command: ["mongod", "--port", "27017", "--shardsvr", "--replSet", "tic", "--bind_ip_all"]
     volumes:
       - mongo_shard_tic_data:/data/db
@@ -700,6 +451,9 @@ services:
 
   mongo-shard-tac:
     image: mongo:7.0
+    depends_on:
+      mongo-config-init-rs:
+        condition: service_completed_successfully
     command: ["mongod", "--port", "27017", "--shardsvr", "--replSet", "tac", "--bind_ip_all"]
     volumes:
       - mongo_shard_tac_data:/data/db
@@ -713,6 +467,9 @@ services:
 
   mongo-shard-toe:
     image: mongo:7.0
+    depends_on:
+      mongo-config-init-rs:
+        condition: service_completed_successfully
     command: ["mongod", "--port", "27017", "--shardsvr", "--replSet", "toe", "--bind_ip_all"]
     volumes:
       - mongo_shard_toe_data:/data/db
@@ -727,12 +484,6 @@ services:
   mongo-shard-init-rs:
     image: mongo:7.0
     depends_on:
-      mongo-config1:
-        condition: service_healthy
-      mongo-config2:
-        condition: service_healthy
-      mongo-config3:
-        condition: service_healthy
       mongo-shard-tic:
         condition: service_healthy
       mongo-shard-tac:
@@ -740,8 +491,8 @@ services:
       mongo-shard-toe:
         condition: service_healthy
     volumes:
-      - "./mongo-sharded/init-replica-sets.sh:/init-replica-sets.sh:ro"
-    entrypoint: ["bash", "/init-replica-sets.sh"]
+      - "./mongo-sharded/init-shard-replica-sets.sh:/init-shard-replica-sets.sh:ro"
+    entrypoint: ["bash", "/init-shard-replica-sets.sh"]
     networks:
       - demo_net
     restart: "no"
@@ -932,6 +683,42 @@ services:
       - demo_net
     depends_on:
       opensearch:
+        condition: service_healthy
+
+  # Browser UI: writes one demo order to Postgres, Mongo, Redis, Cassandra, OpenSearch (see realtime-orders-search-hub/README.md).
+  hub-demo-ui:
+    build:
+      context: ./realtime-orders-search-hub/demo-ui
+      dockerfile: Dockerfile
+    image: mcac-demo/hub-demo-ui:latest
+    # Mount app.py so UI/API changes apply after `docker compose restart hub-demo-ui` without rebuild.
+    volumes:
+      - ./realtime-orders-search-hub/demo-ui/app.py:/app/app.py:ro
+    restart: unless-stopped
+    ports:
+      - "8888:8888"
+    environment:
+      POSTGRES_DSN: postgresql://demo:demopass@postgresql-primary:5432/demo
+      MONGO_URI: mongodb://mongo-mongos1:27017
+      REDIS_URL: redis://:${REDIS_PASSWORD:-demoredispass}@redis:6379/0
+      CASSANDRA_HOSTS: cassandra
+      CASSANDRA_KEYSPACE: demo_hub
+      OPENSEARCH_URL: http://opensearch:9200
+      OPENSEARCH_INDEX: hub-orders
+    networks:
+      - demo_net
+    depends_on:
+      mcac:
+        condition: service_completed_successfully
+      postgresql-primary:
+        condition: service_healthy
+      mongo-kafka-prepare:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+      cassandra:
         condition: service_healthy
 
 networks:

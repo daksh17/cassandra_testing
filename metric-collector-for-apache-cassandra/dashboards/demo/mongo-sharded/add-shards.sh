@@ -24,6 +24,19 @@ function hasShard(id) {
   if (!r.shards) return false;
   return r.shards.some(s => s._id === id);
 }
+function dropLocalDemoOnShard(conn) {
+  try {
+    const uri = "mongodb://" + conn;
+    const m = new Mongo(uri);
+    const ldb = m.getDB("demo");
+    const list = m.getDB("admin").runCommand({ listDatabases: 1 });
+    if (!list.databases || !list.databases.some(d => d.name === "demo")) return;
+    print("dropping stray local database demo on " + conn + " (required before addShard when demo already exists on another shard)");
+    ldb.dropDatabase();
+  } catch (e) {
+    print("pre-clean on " + conn + ": " + e.message);
+  }
+}
 const shards = [
   { id: "tic", conn: "mongo-shard-tic:27017" },
   { id: "tac", conn: "mongo-shard-tac:27017" },
@@ -31,8 +44,13 @@ const shards = [
 ];
 for (const s of shards) {
   if (!hasShard(s.id)) {
+    dropLocalDemoOnShard(s.conn);
     print("adding shard " + s.id);
-    printjson(admin.runCommand({ addShard: s.id + "/" + s.conn }));
+    const r = admin.runCommand({ addShard: s.id + "/" + s.conn });
+    printjson(r);
+    if (r.ok !== 1) {
+      throw new Error("addShard failed for " + s.id + ": " + JSON.stringify(r));
+    }
   } else {
     print("shard " + s.id + " already present");
   }

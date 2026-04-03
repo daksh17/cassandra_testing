@@ -7,6 +7,7 @@ import os
 import re
 import subprocess
 import sys
+import traceback
 
 try:
     from prometheus_client import Gauge, generate_latest, REGISTRY, CONTENT_TYPE_LATEST
@@ -21,6 +22,8 @@ CASSANDRA_HOSTS = [
     if h.strip()
 ]
 LISTEN_PORT = int(os.getenv("NODETOOL_EXPORTER_PORT", "9104"))
+# Per subprocess; 3 calls per host. Keep total wall time well under Prometheus scrape_timeout.
+NODETOOL_TIMEOUT_SEC = int(os.getenv("NODETOOL_TIMEOUT_SEC", "12"))
 
 # Metrics (all Gauges so we can set absolute values on each scrape)
 nt_up = Gauge("nodetool_up", "1 if nodetool could reach the host", ["host"])
@@ -37,7 +40,9 @@ nt_cluster_nodes = Gauge("nodetool_cluster_nodes_total", "Total number of nodes 
 def run_nodetool(host, *args):
     cmd = ["nodetool", "-h", host, "-p", "7199"] + list(args)
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        r = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=NODETOOL_TIMEOUT_SEC
+        )
         return r.returncode == 0, r.stdout or "", r.stderr or ""
     except Exception:
         return False, "", ""
@@ -51,19 +56,22 @@ def parse_status(host, stdout):
         parts = line.split()
         if len(parts) < 4:
             continue
-        state, load_str = parts[0], parts[2]
+        state = parts[0]
+        if state not in ("UN", "UJ", "DN", "UM", "NM", "?"):
+            continue
+        load_str = parts[2]
         state_val = 1 if state == "UN" else (0 if state == "DN" else -1)
         nt_status_state.labels(host=host).set(state_val)
         load_bytes = 0
-        m = re.match(r"([\d.]+)\s*(KiB|MiB|GiB)?", load_str.replace(",", ""))
+        m = re.match(r"([\d.]+)\s*(KiB|MiB|GiB|KB|MB|GB)?", load_str.replace(",", ""))
         if m:
             val = float(m.group(1))
             unit = (m.group(2) or "B").lower()
-            if unit == "kib":
+            if unit in ("kib", "kb"):
                 val *= 1024
-            elif unit == "mib":
+            elif unit in ("mib", "mb"):
                 val *= 1024 * 1024
-            elif unit == "gib":
+            elif unit in ("gib", "gb"):
                 val *= 1024 * 1024 * 1024
             load_bytes = int(val)
         nt_status_load_bytes.labels(host=host).set(load_bytes)
@@ -105,23 +113,39 @@ def parse_tpstats(host, stdout):
 
 
 def scrape_host(host):
+    """Scrape one host; never raises (prometheus_client is not safe for parallel collectors)."""
     ok = False
-    ok1, out1 = run_nodetool(host, "status")
-    if ok1:
-        parse_status(host, out1)
-        ok = True
-    ok2, out2 = run_nodetool(host, "compactionstats")
-    if ok2:
-        parse_compactionstats(host, out2)
-        ok = True
-    ok3, out3 = run_nodetool(host, "tpstats")
-    if ok3:
-        parse_tpstats(host, out3)
-        ok = True
+    try:
+        ok1, out1 = run_nodetool(host, "status")
+        if ok1:
+            try:
+                parse_status(host, out1)
+                ok = True
+            except Exception:
+                traceback.print_exc(file=sys.stderr)
+        ok2, out2 = run_nodetool(host, "compactionstats")
+        if ok2:
+            try:
+                parse_compactionstats(host, out2)
+                ok = True
+            except Exception:
+                traceback.print_exc(file=sys.stderr)
+        ok3, out3 = run_nodetool(host, "tpstats")
+        if ok3:
+            try:
+                parse_tpstats(host, out3)
+                ok = True
+            except Exception:
+                traceback.print_exc(file=sys.stderr)
+    except Exception:
+        traceback.print_exc(file=sys.stderr)
     nt_up.labels(host=host).set(1 if ok else 0)
 
 
 def scrape_all():
+    if not CASSANDRA_HOSTS:
+        return
+    # Sequential only: concurrent Gauge updates + generate_latest(REGISTRY) can race and 500.
     for host in CASSANDRA_HOSTS:
         scrape_host(host)
     nt_cluster_nodes.set(len(CASSANDRA_HOSTS))
@@ -132,13 +156,29 @@ class MetricsHandler(BaseHTTPRequestHandler):
         if self.path not in ("/metrics", "/metrics/"):
             self.send_error(404)
             return
-        scrape_all()
-        output = generate_latest(REGISTRY)
-        self.send_response(200)
-        self.send_header("Content-Type", CONTENT_TYPE_LATEST)
-        self.send_header("Content-Length", str(len(output)))
-        self.end_headers()
-        self.wfile.write(output)
+        try:
+            scrape_all()
+            output = generate_latest(REGISTRY)
+            if isinstance(output, str):
+                output = output.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", CONTENT_TYPE_LATEST)
+            self.send_header("Content-Length", str(len(output)))
+            self.end_headers()
+            self.wfile.write(output)
+        except BrokenPipeError:
+            pass
+        except ConnectionResetError:
+            pass
+        except Exception as e:
+            err = "".join(traceback.format_exception_only(type(e), e)).strip()
+            print(f"nodetool-exporter /metrics error: {err}", file=sys.stderr)
+            body = f"# scrape failed: {err}\n".encode("utf-8")
+            self.send_response(500)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
 
     def log_message(self, format, *args):
         pass

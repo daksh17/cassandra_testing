@@ -20,9 +20,11 @@ scrape_configs:
     - targets:
       - localhost:9090
 
+  # Nodetool-derived metrics (separate container). Port 9104 only — do not use 9103 (that is MCAC on each cassandra node).
   - job_name: "nodetool"
-    scrape_interval: 30s
-    scrape_timeout: 25s
+    # Exporter runs nodetool sequentially (3× per host); keep timeout above 9 × NODETOOL_TIMEOUT_SEC worst-case.
+    scrape_interval: 90s
+    scrape_timeout: 90s
     metrics_path: /metrics
     scheme: http
     static_configs:

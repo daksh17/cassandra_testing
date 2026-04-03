@@ -23,9 +23,9 @@ When you run `docker compose up`, it:
 1. **Starts several "services" (containers):**
    - **prometheus** – collects numbers (metrics) from the Cassandra nodes
    - **grafana** – shows dashboards and graphs from those numbers
-   - **cassandra**, **cassandra2**, **cassandra3**, **cassandra4**, **cassandra5** – 5 Cassandra database nodes that form one cluster
+   - **cassandra**, **cassandra2**, **cassandra3** – 3 Cassandra nodes that form one cluster
    - **nodetool-exporter** – turns `nodetool` output into metrics for Prometheus
-   - **stress** / **stress2** – tools that write load to Cassandra for the demo
+   - **stress** – optional load (KeyValue) against the cluster for the demo
    - **mcac** – build step that prepares the MCAC agent files
 
 2. **Puts them on the same network** (`demo_net`) so they can talk to each other by name (e.g. `cassandra`, `cassandra2`).
@@ -78,9 +78,9 @@ In the compose file you have one long string. Here it is split and explained in 
 | **`-Dcassandra.jmx.remote.authenticate=false`** | “JMX (what nodetool uses) should not require a password.” (So nodetool and the nodetool-exporter can connect without credentials.) |
 | **`-Dcom.sun.management.jmxremote.authenticate=false`** | Same idea, but for the standard Java JMX – “no password for JMX.” |
 | **`-Dcom.sun.management.jmxremote.ssl=false`** | “Don’t use SSL for JMX.” (So connections work simply in the demo.) |
-| **`-Dcassandra.auto_bootstrap=false`** (only on **cassandra5**) | “This node should join the ring but **not** stream data from others at startup.” |
+| **`-Dcassandra.auto_bootstrap=...`** | In older compose versions a 5th node could set bootstrap behavior; the slimmed demo uses three nodes with default bootstrap. |
 
-So: **JVM_EXTRA_OPTS** is how we tell the JVM (and Cassandra) to enable the MCAC agent, speed up the demo, disable JMX auth/SSL, and on node 5 disable bootstrap.
+So: **JVM_EXTRA_OPTS** is how we tell the JVM (and Cassandra) to enable the MCAC agent, speed up the demo, and disable JMX auth/SSL.
 
 ---
 

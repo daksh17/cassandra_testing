@@ -50,7 +50,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "mongodb_up{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "expr": "mongodb_up{job=\"mongodb\",mongo_topology=\"sharded\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "up",
@@ -121,7 +121,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "mongodb_version_info{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "expr": "mongodb_version_info{job=\"mongodb\",mongo_topology=\"sharded\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "{{mongodb}} {{edition}}",
@@ -192,7 +192,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "collector_scrape_time_ms{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "expr": "collector_scrape_time_ms{job=\"mongodb\",mongo_topology=\"sharded\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "{{collector}}",
@@ -262,42 +262,42 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "mongodb_mongos_sharding_shards_total{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "expr": "mongodb_mongos_sharding_shards_total{job=\"mongodb\",mongo_topology=\"sharded\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "shards",
               "refId": "A"
             },
             {
-              "expr": "mongodb_mongos_sharding_chunks_total{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "expr": "mongodb_mongos_sharding_chunks_total{job=\"mongodb\",mongo_topology=\"sharded\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "chunks",
               "refId": "B"
             },
             {
-              "expr": "mongodb_mongos_sharding_chunks_is_balanced{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "expr": "mongodb_mongos_sharding_chunks_is_balanced{job=\"mongodb\",mongo_topology=\"sharded\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "chunks_balanced (1=yes)",
               "refId": "C"
             },
             {
-              "expr": "mongodb_mongos_sharding_shards_draining_total{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "expr": "mongodb_mongos_sharding_shards_draining_total{job=\"mongodb\",mongo_topology=\"sharded\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "shards_draining",
               "refId": "D"
             },
             {
-              "expr": "mongodb_mongos_sharding_databases_total{job=\"mongodb\",instance=\"mongodb-exporter:9216\",type=\"partitioned\"}",
+              "expr": "mongodb_mongos_sharding_databases_total{job=\"mongodb\",mongo_topology=\"sharded\",type=\"partitioned\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "dbs partitioned",
               "refId": "E"
             },
             {
-              "expr": "mongodb_mongos_sharding_databases_total{job=\"mongodb\",instance=\"mongodb-exporter:9216\",type=\"unpartitioned\"}",
+              "expr": "mongodb_mongos_sharding_databases_total{job=\"mongodb\",mongo_topology=\"sharded\",type=\"unpartitioned\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "dbs unpartitioned",
@@ -368,21 +368,21 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "mongodb_mongos_sharding_shard_chunks_total{job=\"mongodb\",instance=\"mongodb-exporter:9216\",shard=\"tic\"}",
+              "expr": "mongodb_mongos_sharding_shard_chunks_total{job=\"mongodb\",mongo_topology=\"sharded\",shard=\"tic\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "tic",
               "refId": "A"
             },
             {
-              "expr": "mongodb_mongos_sharding_shard_chunks_total{job=\"mongodb\",instance=\"mongodb-exporter:9216\",shard=\"tac\"}",
+              "expr": "mongodb_mongos_sharding_shard_chunks_total{job=\"mongodb\",mongo_topology=\"sharded\",shard=\"tac\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "tac",
               "refId": "B"
             },
             {
-              "expr": "mongodb_mongos_sharding_shard_chunks_total{job=\"mongodb\",instance=\"mongodb-exporter:9216\",shard=\"toe\"}",
+              "expr": "mongodb_mongos_sharding_shard_chunks_total{job=\"mongodb\",mongo_topology=\"sharded\",shard=\"toe\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "toe",
@@ -452,7 +452,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "mongodb_mongos_db_data_size_bytes{job=\"mongodb\",instance=\"mongodb-exporter:9216\",db=\"demo\"}",
+              "expr": "mongodb_mongos_db_data_size_bytes{job=\"mongodb\",mongo_topology=\"sharded\",db=\"demo\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "{{shard}}",
@@ -522,7 +522,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "mongodb_mongos_db_index_size_bytes{job=\"mongodb\",instance=\"mongodb-exporter:9216\",db=\"demo\"}",
+              "expr": "mongodb_mongos_db_index_size_bytes{job=\"mongodb\",mongo_topology=\"sharded\",db=\"demo\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "{{shard}}",
@@ -592,7 +592,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "mongodb_mongos_db_collections_total{job=\"mongodb\",instance=\"mongodb-exporter:9216\",db=\"demo\"}",
+              "expr": "mongodb_mongos_db_collections_total{job=\"mongodb\",mongo_topology=\"sharded\",db=\"demo\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "collections {{shard}}",
@@ -662,7 +662,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "mongodb_mongos_db_indexes_total{job=\"mongodb\",instance=\"mongodb-exporter:9216\",db=\"demo\"}",
+              "expr": "mongodb_mongos_db_indexes_total{job=\"mongodb\",mongo_topology=\"sharded\",db=\"demo\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "indexes {{shard}}",
@@ -732,7 +732,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "mongodb_mongos_db_data_size_bytes{job=\"mongodb\",instance=\"mongodb-exporter:9216\",db=\"config\"}",
+              "expr": "mongodb_mongos_db_data_size_bytes{job=\"mongodb\",mongo_topology=\"sharded\",db=\"config\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "{{shard}}",
@@ -802,7 +802,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "mongodb_mongos_db_index_size_bytes{job=\"mongodb\",instance=\"mongodb-exporter:9216\",db=\"config\"}",
+              "expr": "mongodb_mongos_db_index_size_bytes{job=\"mongodb\",mongo_topology=\"sharded\",db=\"config\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "{{shard}}",
@@ -872,21 +872,21 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "mongodb_dbstats_raw_tic_mongo_shard_tic_27017_storageSize{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "expr": "mongodb_dbstats_raw_tic_mongo_shard_tic_27017_storageSize{job=\"mongodb\",mongo_topology=\"sharded\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "tic",
               "refId": "A"
             },
             {
-              "expr": "mongodb_dbstats_raw_tac_mongo_shard_tac_27017_storageSize{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "expr": "mongodb_dbstats_raw_tac_mongo_shard_tac_27017_storageSize{job=\"mongodb\",mongo_topology=\"sharded\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "tac",
               "refId": "B"
             },
             {
-              "expr": "mongodb_dbstats_raw_toe_mongo_shard_toe_27017_storageSize{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "expr": "mongodb_dbstats_raw_toe_mongo_shard_toe_27017_storageSize{job=\"mongodb\",mongo_topology=\"sharded\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "toe",
@@ -956,21 +956,21 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "mongodb_dbstats_raw_tic_mongo_shard_tic_27017_objects{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "expr": "mongodb_dbstats_raw_tic_mongo_shard_tic_27017_objects{job=\"mongodb\",mongo_topology=\"sharded\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "tic",
               "refId": "A"
             },
             {
-              "expr": "mongodb_dbstats_raw_tac_mongo_shard_tac_27017_objects{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "expr": "mongodb_dbstats_raw_tac_mongo_shard_tac_27017_objects{job=\"mongodb\",mongo_topology=\"sharded\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "tac",
               "refId": "B"
             },
             {
-              "expr": "mongodb_dbstats_raw_toe_mongo_shard_toe_27017_objects{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "expr": "mongodb_dbstats_raw_toe_mongo_shard_toe_27017_objects{job=\"mongodb\",mongo_topology=\"sharded\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "toe",
@@ -1040,21 +1040,21 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "mongodb_dbstats_raw_tic_mongo_shard_tic_27017_fsUsedSize{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "expr": "mongodb_dbstats_raw_tic_mongo_shard_tic_27017_fsUsedSize{job=\"mongodb\",mongo_topology=\"sharded\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "tic fs used",
               "refId": "A"
             },
             {
-              "expr": "mongodb_dbstats_raw_tac_mongo_shard_tac_27017_fsUsedSize{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "expr": "mongodb_dbstats_raw_tac_mongo_shard_tac_27017_fsUsedSize{job=\"mongodb\",mongo_topology=\"sharded\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "tac fs used",
               "refId": "B"
             },
             {
-              "expr": "mongodb_dbstats_raw_toe_mongo_shard_toe_27017_fsUsedSize{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "expr": "mongodb_dbstats_raw_toe_mongo_shard_toe_27017_fsUsedSize{job=\"mongodb\",mongo_topology=\"sharded\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "toe fs used",
@@ -1124,21 +1124,21 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "mongodb_dbstats_raw_tic_mongo_shard_tic_27017_fsTotalSize{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "expr": "mongodb_dbstats_raw_tic_mongo_shard_tic_27017_fsTotalSize{job=\"mongodb\",mongo_topology=\"sharded\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "tic fs total",
               "refId": "A"
             },
             {
-              "expr": "mongodb_dbstats_raw_tac_mongo_shard_tac_27017_fsTotalSize{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "expr": "mongodb_dbstats_raw_tac_mongo_shard_tac_27017_fsTotalSize{job=\"mongodb\",mongo_topology=\"sharded\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "tac fs total",
               "refId": "B"
             },
             {
-              "expr": "mongodb_dbstats_raw_toe_mongo_shard_toe_27017_fsTotalSize{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "expr": "mongodb_dbstats_raw_toe_mongo_shard_toe_27017_fsTotalSize{job=\"mongodb\",mongo_topology=\"sharded\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "toe fs total",

@@ -1,3 +1,7 @@
+# Verifying auto_bootstrap on cassandra5 (archived)
+
+> **Note:** The default `docker-compose.yml` no longer defines **cassandra5** (demo ring is 3 nodes). This page remains for reference if you re-add a 5th node in your own compose.
+
 # Verifying auto_bootstrap on cassandra5
 
 ## 5th node not showing in nodetool status?

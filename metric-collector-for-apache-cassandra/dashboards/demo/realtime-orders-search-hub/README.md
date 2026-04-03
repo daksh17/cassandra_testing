@@ -22,6 +22,32 @@ A customer places an order: the **API** persists the order in **Postgres** and u
 
 ---
 
+## Browser hub demo UI (one click → all stores)
+
+Service **`hub-demo-ui`** in **`../docker-compose.yml`** serves a small page on **http://localhost:8888**.
+
+1. Start the full demo stack (includes **`mongo-kafka-prepare`** so Mongo collections exist): use **`../start-full-stack.sh`** or `docker compose build hub-demo-ui && docker compose up -d`.
+2. Open **http://localhost:8888** and click **Create demo order**.
+3. The response JSON shows per-store success and the shared **`order_id`**. The page also links to Grafana, Prometheus, OpenSearch Dashboards, and Kafka Connect.
+
+**Grafana:** open **http://localhost:3000** — separate provisioned JSON dashboards under **`../../grafana/generated-dashboards/`** (e.g. **`mongodb-tictactoe-detailed.json`**, **`redis-demo-overview.json`**, **`kafka-cluster-overview.json`**, **`cassandra-condensed.json`**, **`overview.json`**). OpenSearch cluster metrics: import a community **Elasticsearch exporter** dashboard and point the **job** variable at **`opensearch_demo`** (see **`../opensearch/README.md`**).
+
+**Tunable load:** open **http://localhost:8888/workload** to drive batches with **total records**, **batch size**, **payload size (KB)**, and choose **Postgres / Mongo / Redis / Cassandra / OpenSearch**. OpenSearch writes go to index **`hub-workload`** (large payloads × many rows can stress disk; stay within the UI limits).
+
+| Store | What the UI writes | Quick verify |
+|--------|-------------------|--------------|
+| **Postgres** | Row in **`demo_items`** (CDC to Kafka if the Postgres connector is registered) | JSON shows `id` / `name`; or `SELECT * FROM demo_items ORDER BY id DESC LIMIT 5;` on **15432** |
+| **Mongo** | Doc in **`demo.demo_items`** with `source: "hub-demo-ui"` | `db.demo_items.find({ source: "hub-demo-ui" }).sort({ _id: -1 }).limit(5)` on mongos **27025** |
+| **Redis** | Key **`hub:order:<order_id>`** (TTL 1h) | JSON shows `read_back`; or `redis-cli -a demoredispass GET hub:order:<uuid>` |
+| **Cassandra** | Row in **`demo_hub.orders`** | JSON shows row; or `SELECT * FROM demo_hub.orders LIMIT 10;` via **cqlsh** (e.g. **19442**) |
+| **OpenSearch** | Document in index **`hub-orders`** | **GET** `http://localhost:9200/hub-orders/_doc/<order_id>?pretty` or in **OpenSearch Dashboards** → **Dev Tools**: `GET hub-orders/_search?q=hub-demo-ui&pretty` |
+
+**OpenSearch Dashboards (5601):** after a few writes, under **Management** → **Index patterns**, create **`hub-orders*`** then open **Discover** to search by `order_id` or `label`. Dev Tools is fastest for ad hoc `GET`/`POST`.
+
+Source: **[`demo-ui/`](demo-ui/)** (FastAPI + Dockerfile).
+
+---
+
 ## Entire workflow (diagrams)
 
 **If you only see raw `flowchart` / `sequenceDiagram` text:** your preview does not render Mermaid. That is normal in **Cursor / VS Code** unless you add a Mermaid-capable Markdown preview (e.g. extension “Markdown Preview Mermaid Support”). **GitHub** renders Mermaid in `README.md` on the repo website. **Below each heading, the same diagram is also inlined as an SVG** so it shows in any viewer that supports images.
@@ -289,6 +315,53 @@ flowchart LR
 
 1. **Prometheus** **http://localhost:9090/targets** — PG exporters, `kafka_pgdemo`, `mongodb`, `redis_demo`, `opensearch_demo`, `mcac`, etc. Restart after **`prometheus.yaml`** changes.
 2. **Grafana** **http://localhost:3000** — Kafka, Redis, Mongo, Cassandra dashboards in **`../../grafana/generated-dashboards/`**.
+
+---
+
+## How to test this scenario
+
+Use **http://localhost:8888** (**`hub-demo-ui`**) for one-click writes to Postgres, Mongo, Redis, Cassandra, and OpenSearch; then use the table below and Grafana / Connect for CDC and metrics.
+
+### 1. Start the demo Compose stack
+
+From **`dashboards/demo`**:
+
+```bash
+cd /path/to/metric-collector-for-apache-cassandra/dashboards/demo
+chmod +x start-full-stack.sh
+./start-full-stack.sh
+```
+
+Or manually: `export PROJECT_VERSION=...`, `docker compose build mcac kafka-connect hub-demo-ui`, then `docker compose up -d`. Use **`demo/docker-compose.yml`**, not **`dashboards/docker-compose.yaml`** (that parent file is Prometheus + Grafana only).
+
+Wait until Postgres, Mongo sharded chain, Kafka, Connect, Redis, OpenSearch, Cassandra (if enabled), Prometheus, and Grafana are healthy. See **[`../README.md`](../README.md)** for partial starts if you do not want every service.
+
+### 2. Smoke-test each plane (no custom code)
+
+| Check | Command or URL |
+|--------|----------------|
+| **Hub demo UI** | **http://localhost:8888** — click *Create demo order*; JSON shows each store. |
+| Kafka Connect | `curl -s http://localhost:8083/` — should return Connect worker JSON. |
+| **Postgres CDC** | From **`../postgres-kafka/`**: `chmod +x register-connectors.sh && ./register-connectors.sh` then insert on primary **:15432** and confirm **`demopg.public.demo_items`** has messages (Kafka UI or **`kafka-console-consumer`** per **`../kafka/README.md`**). Full walkthrough: **[`../postgres-kafka/README.md`](../postgres-kafka/README.md)**. |
+| **Mongo CDC** | Build Connect if needed: `docker compose build kafka-connect && docker compose up -d kafka-connect`. From **`../mongo-kafka/`**: `./register-mongo-connectors.sh` then `curl -s http://localhost:8083/connectors/mongo-source-demo/status` — tasks **RUNNING**. Details: **[`../mongo-kafka/README.md`](../mongo-kafka/README.md)**. |
+| **Redis** | `redis-cli -h 127.0.0.1 -p 6379 -a demoredispass ping` → **PONG** (**[`../redis/README.md`](../redis/README.md)**). |
+| **OpenSearch** | `curl -s http://localhost:9200` — cluster info JSON (**[`../opensearch/README.md`](../opensearch/README.md)**). |
+| **Prometheus** | **http://localhost:9090/targets** — exporters **UP** for the jobs you care about. |
+| **Grafana** | **http://localhost:3000** — open Kafka / Mongo / Redis (and Cassandra) dashboards from provisioning. |
+
+### 3. What “fully tested” means for this README
+
+- **`hub-demo-ui`:** direct writes to Postgres `demo_items`, Mongo `demo.demo_items`, Redis `hub:order:*`, Cassandra `demo_hub.orders`, and OpenSearch `hub-orders` with verification in the browser JSON.
+- **Kafka / CDC:** after registers scripts, the same Postgres and Mongo writes also produce **Kafka** topics; use Connect status + Grafana Kafka dashboard to confirm.
+- **Custom fan-out:** optional extra consumers from Kafka → other indexes or tables are still yours to add.
+
+### 4. Optional: one-liner greps for connector names
+
+```bash
+curl -s http://localhost:8083/connectors | jq .
+```
+
+You should see the Postgres and Mongo connector names once **`register-connectors.sh`** / **`register-mongo-connectors.sh`** have been run successfully.
 
 ---
 
