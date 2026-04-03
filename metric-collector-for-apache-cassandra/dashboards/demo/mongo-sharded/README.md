@@ -10,10 +10,18 @@ Shell scripts used by **`../docker-compose.yml`** to turn up a **nine-container*
 
 | File | Runs when | Purpose |
 |------|-----------|---------|
-| **`init-replica-sets.sh`** | Service **`mongo-shard-init-rs`** | **`rs.initiate`** for configReplSet and for tic/tac/toe; waits for primaries. |
+| **`init-config-replica-set.sh`** | **`mongo-config-init-rs`** (before shards start) | **`rs.initiate`** for **configReplSet**; waits for a config **PRIMARY**. Avoids a deadlock where shard data already expects a config RS but it is not up yet. |
+| **`init-shard-replica-sets.sh`** | **`mongo-shard-init-rs`** | **`rs.initiate`** for **tic** / **tac** / **toe**; waits for primaries. |
+| **`init-replica-sets.sh`** | (optional / local) | Wrapper that runs both scripts in order. |
 | **`add-shards.sh`** | Service **`mongo-shard-add`** | **`addShard`** for tic, tac, toe via **`mongos`**. |
 
 All **`mongod`** / **`mongos`** processes use **port 27017** inside the network (explicit `--port` avoids MongoDB 7’s default **27019** on config servers).
+
+## Troubleshooting
+
+- **`addShard` / `mongo-shard-add` exit 1** — message like *local database `demo` exists on another shard*: usually leftover `demo` on a shard mongod from a partial run or write before all shards were registered. The **`add-shards.sh`** step now drops stray local **`demo`** on each shard **before** `addShard` (only for shards not yet in `listShards`). Re-run: `docker compose rm -f mongo-shard-add && docker compose up -d mongo-shard-add`.
+- **`dependency failed to start: mongo-shard-* is unhealthy`**, logs show **`configReplSet`** / **`FailedToSatisfyReadPreference`** on a shard: usually fixed by this compose order (config RS before shards). If volumes were created under an inconsistent layout, reset Mongo data: `docker compose down` and remove the **`mongo_shard_*`** and **`mongo_cfg*`** volumes, then `up` again.
+- **Stale cluster metadata** (config wiped but shards kept): remove shard volumes or run `docker compose down -v` for the demo project (only if you can lose local Mongo data).
 
 ## Kafka / Debezium
 

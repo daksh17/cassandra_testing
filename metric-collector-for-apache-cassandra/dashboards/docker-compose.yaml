@@ -1,3 +1,7 @@
+# Lightweight Prometheus + Grafana only (ports 9091 / 3001). Expects external network mcac_net.
+# For the FULL demo (Kafka, Postgres, Mongo, Redis, OpenSearch, Cassandra, MCAC), use:
+#   demo/docker-compose.yml
+#   demo/start-full-stack.sh
 services:
   prometheus:
     container_name: mcac-dashboards_prometheus_1

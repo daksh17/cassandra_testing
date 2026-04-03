@@ -54,7 +54,7 @@ npx --yes @mermaid-js/mermaid-cli@11.4.0 -i diagrams/mongo-cdc-sequence.mmd -o d
 
 ## Step-by-step walkthrough
 
-1. **Start Mongo dependencies** (from **`dashboards/demo`**): config servers, shard nodes, **`mongo-shard-init-rs`**, **`mongos`** ×3, **`mongo-shard-add`**, then **`mongo-kafka-prepare`**. Ensure **Kafka** and **ZooKeeper** are up if you have not already started another demo stack that includes them.
+1. **Start Mongo dependencies** (from **`dashboards/demo`**): config servers, **`mongo-config-init-rs`**, shard nodes, **`mongo-shard-init-rs`**, **`mongos`** ×3, **`mongo-shard-add`**, then **`mongo-kafka-prepare`**. Ensure **Kafka** and **ZooKeeper** are up if you have not already started another demo stack that includes them.
 2. **Build and start Kafka Connect** so the worker loads the **Mongo sink** plugin:
 
    ```bash
@@ -151,7 +151,7 @@ Each **`insertOne` / `insertMany`** still goes through **mongos**; hashed shardi
 
 Rough order (all wired in **`../docker-compose.yml`**; scripts live under **`../mongo-sharded/`**):
 
-1. **Replica sets** — **`init-replica-sets.sh`** (service **`mongo-shard-init-rs`**) initializes **`configReplSet`** on the three config servers and **`tic`**, **`tac`**, **`toe`** on the three shard `mongod` nodes.
+1. **Replica sets** — **`mongo-config-init-rs`** runs **`init-config-replica-set.sh`** so **`configReplSet`** has a **PRIMARY** before any shard `mongod` starts. Then **`mongo-shard-init-rs`** runs **`init-shard-replica-sets.sh`** to initialize **`tic`**, **`tac`**, **`toe`** on the three shards. (Legacy **`init-replica-sets.sh`** runs both steps in one shell.)
 2. **Routers** — three **`mongos`** processes start; they read **cluster metadata** from the config servers.
 3. **Register shards** — **`add-shards.sh`** (service **`mongo-shard-add`**) runs **`addShard`** for **`tic` / `tac` / `toe`** so each shard replica set is a storage node in the cluster (see **`add-shards.sh`**).
 4. **Shard the collections** — **`prepare-demo-collections.sh`** runs **`sh.enableSharding("demo")`** and **`sh.shardCollection("demo.demo_items", { _id: "hashed" })`** (and the same for **`demo_items_from_kafka`**). A **hashed shard key on `_id`** means MongoDB hashes each document’s **`_id`** and places it in a **chunk**; chunks are **split** and **balanced** across shards so load is spread roughly evenly as data grows (not “round‑robin per insert”).

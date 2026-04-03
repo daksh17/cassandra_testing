@@ -1,6 +1,10 @@
 ### Cluster Demo
 
-This directory’s **`docker-compose.yml`** defines **one** stack (Cassandra, ZooKeeper/Kafka/Connect, optional Postgres and Mongo demos, **Redis 7**, **OpenSearch**, Prometheus, Grafana). Topic-specific guides live in subfolders:
+This directory’s **`docker-compose.yml`** defines **one** stack (Cassandra, ZooKeeper/Kafka/Connect, optional Postgres and Mongo demos, **Redis 7**, **OpenSearch**, Prometheus, Grafana). A plain **`docker compose up`** here starts **every service in that file** (no Compose profiles). Prefer **[`start-full-stack.sh`](start-full-stack.sh)** so `PROJECT_VERSION` is set and **`mcac`** / **`kafka-connect`** images are built first.
+
+**Note:** **`../docker-compose.yaml`** (parent `dashboards/` folder) runs **only** Prometheus + Grafana on ports **9091** / **3001** and does **not** start Kafka, Postgres, Mongo, Redis, OpenSearch, or Cassandra.
+
+Topic-specific guides live in subfolders:
 
 | Folder | Focus |
 |--------|--------|
@@ -19,20 +23,24 @@ This directory’s **`docker-compose.yml`** defines **one** stack (Cassandra, Zo
 This docker-compose script starts a small cluster with some workloads running and the dashboards
 in one easy command!
 
-To use:  
+To use:
 
-  1. From the project root make the agent (in Windows, you will need to do this under WSL):
+  1. **Recommended — full stack from this directory** (agent is built inside the **`mcac`** image; no host Maven required):
 
      ```bash
-     mvn -DskipTests package
+     chmod +x start-full-stack.sh
+     ./start-full-stack.sh
      ```
 
-  2. From this directory start the system, noting we need to parse the mcac-agent.jar version from the pom (in Windows, do this outside of WSL):
+  2. **Manual equivalent:** set `PROJECT_VERSION` from the root `pom.xml`, build images, then bring everything up:
 
      ```bash
      export PROJECT_VERSION=$(grep '<revision>' ../../pom.xml | sed -E 's/(<\/?revision>|[[:space:]])//g')
-     docker-compose up
+     docker compose build mcac kafka-connect hub-demo-ui
+     docker compose up -d
      ```
+
+     Optional: build the agent on the host with `mvn -DskipTests package` before step 2 if you iterate on the agent locally; the **`mcac`** service still populates the shared volume from its image. Browser end-to-end test (**Postgres / Mongo / Redis / Cassandra / OpenSearch**): **http://localhost:8888** (see **`realtime-orders-search-hub/README.md`**).
      
   3. Open your web browser to [http://localhost:3000](http://localhost:3000)
   
@@ -46,8 +54,8 @@ To use:
 
 ### Running tlp-stress commands (list, run, etc.)
 
-**Running containers (`demo-stress-1`, `demo-stress2-1`)**  
-Started by docker-compose. They run a **fixed workload** continuously (e.g. KeyValue, BasicTimeSeries) to generate load for the demo. You don’t run `list` or `run` inside them; they’re already running. You need these for ongoing load.
+**Running container (`demo-stress-1`)**  
+Started by compose: one **tlp-stress** workload (KeyValue) against the main cluster. You don’t run `list` or `run` inside it; use `docker run` below for ad-hoc tests.
 
 **One-off commands (`docker run --rm ...`)**  
 Use a **new** container when you want to run a different workload, or run `list` / `-h` / a short `run` test. The `tlp-stress` binary isn’t on `PATH` when you `docker exec` into the running stress containers, so use `docker run` for these:
@@ -60,26 +68,17 @@ Use a **new** container when you want to run a different workload, or run `list`
 - **`list`** does not need Cassandra or `--network`; it only prints available workloads.
 - **`run ...`** needs `--network mcac_net` and `TLP_STRESS_CASSANDRA_HOST=cassandra` to talk to your cluster.
 
-So you need **both**: the compose stress containers for continuous demo load, and `docker run` for ad-hoc list/help/run.
+So you need **both**: the compose **stress** service for continuous demo load, and `docker run` for ad-hoc list/help/run.
 
 ### Cluster, datacenter and rack (by service)
 
-The main cluster and Standalone use the default **SimpleSnitch** (datacenter1/rack1). **cassandra-dc2** is the same cluster as the main but in datacenter2 (GossipingPropertyFileSnitch + `main-cluster-dc2.rackdc.properties`). The Secondary cluster uses **GossipingPropertyFileSnitch** and `secondary-rackdc.properties` (datacenter2/rack2). **dc1-node1** is a standalone node (cluster "StandaloneDC1") using `secondary-dc1.rackdc.properties` (datacenter1/rack1); it can be joined to the Secondary cluster later so the cluster has two DCs.
+This compose file runs a single **3-node “Test Cluster”** (SimpleSnitch, datacenter1/rack1): **`cassandra`**, **`cassandra2`**, **`cassandra3`**. Extra multi-datacenter / Secondary-cluster nodes were removed to reduce CPU and RAM; add them back in your own fork if you need topology labs.
 
-| Service               | Cluster name   | DC           | Rack   |
-|-----------------------|----------------|--------------|--------|
-| cassandra             | Test Cluster   | datacenter1  | rack1  |
-| cassandra2            | Test Cluster   | datacenter1  | rack1  |
-| cassandra3            | Test Cluster   | datacenter1  | rack1  |
-| cassandra-dc2         | Test Cluster   | datacenter2  | rack1  |
-| cassandra4            | Test Cluster   | datacenter1  | rack1  |
-| cassandra5            | Test Cluster   | datacenter1  | rack1  |
-| cassandra-standalone  | Standalone     | datacenter1  | rack1  |
-| dc2r2-node1           | Secondary      | datacenter2  | rack2  |
-| dc2r2-node2           | Secondary      | datacenter2  | rack2  |
-| dc2r2-node3           | Secondary      | datacenter2  | rack2  |
-| dc2r2-node4           | StandaloneDC2R2 (standalone; same DC as main, rack2)   | datacenter1  | rack2  |
-| dc1-node1             | StandaloneDC1 (standalone; can be joined to Secondary later) | datacenter1  | rack1  |
+| Service    | Cluster name   | DC           | Rack   |
+|------------|----------------|--------------|--------|
+| cassandra  | Test Cluster   | datacenter1  | rack1  |
+| cassandra2 | Test Cluster   | datacenter1  | rack1  |
+| cassandra3 | Test Cluster   | datacenter1  | rack1  |
 
 ### Commands you can run (from this directory)
 
@@ -93,29 +92,11 @@ docker compose down
 docker compose ps -a
 ```
 
-**Start only the Secondary cluster (dc* nodes)**  
-If you only want the 5-node Secondary cluster and not the main cluster:
+**Remove leftover Cassandra containers** (from an older compose that had extra nodes / Secondary cluster). Current stack only defines **`cassandra`**, **`cassandra2`**, **`cassandra3`**:
 ```bash
-export PROJECT_VERSION=$(grep '<revision>' ../../pom.xml | sed -E 's/(<\/?revision>|[[:space:]])//g')
-docker compose up -d dc2r2-node1 dc2r2-node2 dc2r2-node3 dc2r2-node4 dc1-node1
+docker rm -f demo-cassandra4-1 demo-cassandra5-1 demo-cassandra-standalone-1 \
+  demo-dc2r2-node1-1 demo-dc2r2-node2-1 demo-dc2r2-node3-1 demo-dc2r2-node4-1 demo-dc1-node1-1 2>/dev/null || true
 ```
-
-**Run only dc* cluster + Grafana + Prometheus + one stress (stop and remove everything else)**  
-From `dashboards/demo`, stop and remove all services except the dc* nodes, Grafana, Prometheus, and `stress`; then start only those. The **mcac** service runs once to populate the `mcac_data` volume with the MCAC agent (required for dc* nodes); then dc* and stress start.
-```bash
-cd /path/to/metric-collector-for-apache-cassandra/dashboards/demo
-
-# 1. Stop and remove everything you don't want (main cluster, nodetool-exporter, stress2, etc.)
-docker compose stop mcac nodetool-exporter cassandra cassandra2 cassandra3 cassandra4 cassandra5 cassandra-standalone stress2
-docker compose rm -f mcac nodetool-exporter cassandra cassandra2 cassandra3 cassandra4 cassandra5 cassandra-standalone stress2
-
-# 2. Start only: mcac (populates agent into mcac_data then exits), dc*, Grafana, Prometheus, stress
-#    Ensure PROJECT_VERSION is set (e.g. in .env or: export PROJECT_VERSION=$(grep '<revision>' ../../pom.xml | sed -E 's/(<\/?revision>|[[:space:]])//g'))
-docker compose up -d prometheus grafana mcac dc2r2-node1 dc2r2-node2 dc2r2-node3 dc2r2-node4 dc1-node1 stress
-```
-- **Grafana:** http://localhost:3000 — **Prometheus:** http://localhost:9090 — **Stress:** http://localhost:9500 — **CQL (Secondary):** `cqlsh -u cassandra -p cassandra 127.0.0.1 19450` (node1).
-- The `stress` service is configured to use the Secondary cluster (`dc2r2-node1`). Wait for dc* nodes to be healthy before stress runs.
-- If **dc2r2-node1** (or other dc*) shows **Exited (3)**, check logs: `docker compose logs dc2r2-node1 --tail 80`. Often the cause is an empty `mcac_data` volume (MCAC agent jar missing). Ensure **mcac** has run at least once (it populates the volume and exits); then start dc* again.
 
 **MongoDB: 1 replica set (rs1) with 3 nodes + Prometheus + Grafana**  
 No host ports 27017/27018/27019 (use 27201–27203). Metrics from mongodb-exporter are scraped by Prometheus and can be viewed in Grafana.
@@ -201,115 +182,28 @@ docker volume prune -f
 ```
 **MongoDB rs1:** If `mongosh "mongodb://localhost:27201"` gives ECONNREFUSED, ensure the stack is up and wait ~2 min for mongo-rs1-init to finish. Check `docker compose ps -a` (mongo-rs1-init should be Exited (0), mongo-rs1-node1/2/3 and mongodb-exporter Up). If mongo-rs1-init failed, run `docker compose logs mongo-rs1-init --tail 30`.
 
-**Cassandra – nodetool (main cluster: cassandra, cassandra2, cassandra3, cassandra-dc2 [DC2], cassandra4, cassandra5)**
+**Cassandra – nodetool (3-node Test Cluster)**
 ```bash
-docker exec demo-cassandra-1 nodetool status
-docker exec demo-cassandra-dc2-1 nodetool status   # 4th node in datacenter2
-docker exec demo-cassandra2-1 nodetool ring
+docker exec "$(docker ps -q -f name=demo-cassandra-1)" nodetool status
+docker exec "$(docker ps -q -f name=demo-cassandra2-1)" nodetool ring
 ```
-**Standalone cluster (cluster name "Standalone", single node: cassandra-standalone)**
+(Replace container names if your project prefix is not `demo-`.)
+
+**Cassandra – cqlsh (host ports: 19442, 19443, 19444 → nodes 1–3)**
 ```bash
-docker exec demo-cassandra-standalone-1 nodetool status
-```
-
-**Secondary cluster (cluster name "Secondary", datacenter2/rack2): dc2r2-node1, dc2r2-node2, dc2r2-node3, dc2r2-node4**
-```bash
-docker exec demo-dc2r2-node1-1 nodetool status
-docker exec demo-dc2r2-node1-1 nodetool describecluster
-```
-
-**Standalone dc1-node1 (cluster "StandaloneDC1", datacenter1/rack1; can be joined to Secondary later for 2-DC setup)**
-```bash
-docker exec demo-dc1-node1-1 nodetool status
-docker exec -it demo-dc1-node1-1 cqlsh   # or cqlsh localhost 19454
-```
-
-**Standalone dc2r2-node4 (cluster "StandaloneDC2R2", datacenter1/rack2; can be joined to Secondary later)**
-```bash
-docker exec demo-dc2r2-node4-1 nodetool status
-docker exec -it demo-dc2r2-node4-1 cqlsh   # or cqlsh localhost 19453
-```
-**Manually add dc2r2-node4 to the Secondary cluster (dc2r2-node1, dc2r2-node2, dc2r2-node3 already running):**
-
-1. **Step 1 – Stop and remove dc2r2-node4.** Run `docker compose stop dc2r2-node4` then `docker compose rm -f dc2r2-node4` (clears data so saved cluster name does not conflict).
-
-2. **Edit `docker-compose.yml`** for `dc2r2-node4`: set `CASSANDRA_CLUSTER_NAME: "Secondary"`, `CASSANDRA_SEEDS: "dc2r2-node1,dc2r2-node2"`, `CASSANDRA_DC: "datacenter2"`, `CASSANDRA_RACK: "rack2"`, and change the rackdc volume to `./secondary-rackdc.properties`.
-
-3. **Start dc2r2-node4:** `docker compose up -d dc2r2-node4` (it will bootstrap from the ring).
-
-4. **Check the ring:** `docker exec demo-dc2r2-node1-1 nodetool status` — you should see 4 nodes in datacenter2, rack2.
-
-5. **(Optional)** Add dc2r2-node4 to the seed list on dc2r2-node1/node2/node3 for discovery.
-
-**Manually add dc1-node1 to the Secondary cluster (so the cluster has 2 DCs: datacenter1 + datacenter2):**
-
-1. **Step 1 – Stop and remove dc1-node1.** Run `docker compose stop dc1-node1` then `docker compose rm -f dc1-node1` (clears data so saved cluster name does not conflict).
-
-2. **Edit `docker-compose.yml`** for the `dc1-node1` service. Change only these two lines in the `environment` block:
-   - `CASSANDRA_CLUSTER_NAME: "StandaloneDC1"` → `CASSANDRA_CLUSTER_NAME: "Secondary"`
-   - `CASSANDRA_SEEDS: "dc1-node1"` → `CASSANDRA_SEEDS: "dc2r2-node1,dc2r2-node2"`
-   Leave `CASSANDRA_DC`, `CASSANDRA_RACK`, and the volume `./secondary-dc1.rackdc.properties` unchanged.
-
-3. **Start dc1-node1:** `docker compose up -d dc1-node1`. The service already has `-Dcassandra.auto_bootstrap=false` (like `dc2r2-node4.yaml`), so the node joins the ring without streaming data.
-
-4. **Check the ring:** `docker exec demo-dc2r2-node1-1 nodetool status` — you should see datacenter2 (4 nodes) and datacenter1 (1 node).
-
-5. **(Optional)** Add dc1-node1 to the seed list on Secondary nodes for discovery.
-
-**Add dc1-node1 to the Secondary cluster as datacenter2** (5th node in DC2; cluster stays single-DC):
-
-The compose mounts `dc1-node1.yaml` (copy of `dc2r2-node4.yaml` with `auto_bootstrap: false`) so the node joins without streaming. The image often does not apply the JVM option `-Dcassandra.auto_bootstrap=false`, so the yaml is used instead.
-
-1. **Stop and remove dc1-node1** (clears data so saved cluster name does not conflict):
-   ```bash
-   docker compose stop dc1-node1
-   docker compose rm -f dc1-node1
-   ```
-
-2. **Edit `docker-compose.yml`** for the `dc1-node1` service. In the `environment` block, set:
-   - `CASSANDRA_CLUSTER_NAME: "Secondary"`
-   - `CASSANDRA_SEEDS: "dc2r2-node1,dc2r2-node2"`
-   - `CASSANDRA_DC: "datacenter2"`
-   - `CASSANDRA_RACK: "rack2"`
-   In the `volumes` section, change the rackdc mount from `./secondary-dc1.rackdc.properties` to `./secondary-rackdc.properties`.
-
-3. **Start dc1-node1:** `docker compose up -d dc1-node1`. The service mounts `dc1-node1.yaml` (same content as `dc2r2-node4.yaml`) so `auto_bootstrap: false` is set in `cassandra.yaml`; the image entrypoint still overwrites seeds and cluster_name from env, so the node joins the ring without streaming.
-
-4. **Check the ring:** `docker exec demo-dc2r2-node1-1 nodetool status` — you should see **datacenter2** with 5 nodes (dc2r2-node1–4 plus dc1-node1), all in rack2.
-
-5. **(Optional)** Add dc1-node1 to the seed list on other Secondary nodes for discovery.
-
-**Cassandra – cqlsh (host ports: main 19442–19446, cassandra-dc2 19448; Standalone 19447; Secondary 19450–19453; dc1-node1 19454)**
-```bash
-docker exec -it demo-cassandra-1 cqlsh
-docker exec -it demo-cassandra-dc2-1 cqlsh         # or cqlsh localhost 19448 (main cluster, DC2)
-# Standalone cluster (single node):
-docker exec -it demo-cassandra-standalone-1 cqlsh   # or cqlsh localhost 19447
-# Secondary cluster:
-docker exec -it demo-dc2r2-node1-1 cqlsh           # or cqlsh localhost 19450/19451/19452
-# Standalone dc1-node1 (datacenter1/rack1):
-docker exec -it demo-dc1-node1-1 cqlsh            # or cqlsh localhost 19454
+docker exec -it "$(docker ps -q -f name=demo-cassandra-1)" cqlsh
+# or from host: cqlsh 127.0.0.1 19442
 ```
 
 **Shell in a Cassandra node**
 ```bash
-docker exec -it demo-cassandra-1 /bin/bash
-docker exec -it demo-cassandra2-1 /bin/bash
+docker exec -it "$(docker ps -q -f name=demo-cassandra-1)" /bin/bash
 ```
 
-**Install nano (or vim) in a Cassandra container**  
-The image does not include an editor by default. From the host (replace container name as needed):
+**Install nano in a Cassandra container** (optional; replace container id/name):
 ```bash
-docker exec -u root demo-dc2r2-node4-1 apt-get update && docker exec -u root demo-dc2r2-node4-1 apt-get install -y nano
+docker exec -u root "$(docker ps -q -f name=demo-cassandra-1)" bash -c 'apt-get update && apt-get install -y nano'
 ```
-Or from inside the container (as root):
-```bash
-docker exec -it -u root demo-dc2r2-node4-1 /bin/bash
-# then inside:
-apt-get update && apt-get install -y nano
-exit
-```
-Then use `nano /etc/cassandra/cassandra.yaml` (or other file) inside that container.
 
 **Grafana**
 - Open [http://localhost:3000](http://localhost:3000)
@@ -362,6 +256,6 @@ docker run --rm --network mcac_net -e TLP_STRESS_CASSANDRA_HOST=cassandra thelas
 **Logs**
 ```bash
 docker logs demo-cassandra-1
-docker logs demo-cassandra5-1 --tail 100
+docker logs demo-cassandra3-1 --tail 100
 docker logs demo-stress-1
 ```

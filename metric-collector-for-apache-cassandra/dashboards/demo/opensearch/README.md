@@ -16,6 +16,24 @@ This demo runs a **single-node** cluster with the **security plugin disabled** s
 
 Inside Docker, apps use **`http://opensearch:9200`** for the REST API.
 
+## Connect (clients)
+
+| From | Base URL | Notes |
+|------|----------|--------|
+| Your machine (browser, curl, app) | **`http://localhost:9200`** | With the demo compose ports published |
+| Another container on **`mcac_net`** | **`http://opensearch:9200`** | e.g. **`hub-demo-ui`**, **`opensearch-exporter`** |
+| OpenSearch Dashboards (UI) | **`http://localhost:5601`** | Kibana-compatible UI; Dev Tools runs `_search` / `_cat` |
+
+This demo has **no HTTP auth** on OpenSearch (security plugin off). Use any HTTP client or an OpenSearch/Elasticsearch-compatible SDK targeting that base URL.
+
+```bash
+curl -s http://localhost:9200/
+curl -s 'http://localhost:9200/_cluster/health?pretty'
+curl -s 'http://localhost:9200/hub-orders/_search?pretty' -H 'Content-Type: application/json' -d '{"size":5,"query":{"match_all":{}}}'
+```
+
+Python example (same as the hub UI): `httpx.get("http://localhost:9200/…")` or `httpx.post("http://opensearch:9200/_bulk", …)` from inside the stack.
+
 ## Authentication (this demo)
 
 With **`DISABLE_SECURITY_PLUGIN=true`**, there is **no** username/password on the OpenSearch HTTP API. **Do not expose these ports to the internet.**
