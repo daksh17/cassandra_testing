@@ -128,10 +128,6 @@ The Prometheus config includes jobs **`postgres_pgdemo`** and **`kafka_pgdemo`**
 curl -s 'http://localhost:9090/api/v1/targets' | head -c 2000
 ```
 
-## MongoDB + Kafka (same compose, separate doc)
-
-The stack can also run **Debezium MongoDB CDC** and a **Mongo sink** on the same **Kafka** / **Kafka Connect** instance. That workflow, diagrams, and troubleshooting are documented only in **[`../mongo-kafka/README.md`](../mongo-kafka/README.md)** (cluster init scripts: **[`../mongo-sharded/README.md`](../mongo-sharded/README.md)**).
-
 ## Register Debezium connectors
 
 When **Kafka Connect** answers on [http://localhost:8083](http://localhost:8083):
@@ -168,23 +164,10 @@ The script **POST** to create connectors failed. Older versions used `curl -f` a
 ## Grafana
 
 1. Open [http://localhost:3000](http://localhost:3000) (anonymous access is enabled in the demo compose).
-2. Open **Dashboards → PostgreSQL & Kafka (Debezium demo)**.
+2. **Kafka-only** (this repo): provisioned dashboard **Kafka cluster (demo broker)** — file **`grafana/generated-dashboards/kafka-cluster-overview.json`**, UID **`demo-kafka-cluster`**. It charts **`danielqsj/kafka-exporter`** metrics scraped as **`job="kafka_pgdemo"`**.
+3. **PostgreSQL**: there is no bundled Postgres-only dashboard in `generated-dashboards`. Use **Explore** on the **`prometheus`** datasource, or import a community **postgres_exporter** dashboard (e.g. search on [Grafana.com](https://grafana.com/grafana/dashboards/)) and set the job filter to **`postgres_pgdemo`** (and `pg_cluster="pgdemo"` where applicable) to match **`dashboards/prometheus/prometheus.yaml`**.
 
-The dashboard lives in the repo as:
-
-`dashboards/grafana/generated-dashboards/postgres-kafka-overview.json`
-
-It is picked up automatically because Grafana provisioning mounts the whole `generated-dashboards` directory.
-
-Panels include:
-
-- Active connections and commit rate per **primary / replica** (`pg_role` label).
-- Database size and **replication lag** (when exported for replicas).
-- **Kafka** topic end offsets and **consumer group lag** (including Connect consumer groups).
-
-For deeper Kafka or Postgres dashboards, you can import community dashboards from [Grafana.com](https://grafana.com/grafana/dashboards/) (search “Kafka exporter”, “PostgreSQL Database”) and point them at the existing **Prometheus** datasource named `prometheus`.
-
-### Grafana shows **No data** on “PostgreSQL & Kafka (Debezium demo)”
+### Grafana shows **No data** for Postgres exporter metrics
 
 1. **Postgres exporter v0.17+** needs `DATA_SOURCE_URI` = `host:port/db?…` only, with **`DATA_SOURCE_USER`** / **`DATA_SOURCE_PASS`** set separately. A full `postgresql://user:pass@…` URI in `DATA_SOURCE_URI` breaks the DSN (`pg_up` stays 0). The compose file in this repo is fixed; recreate exporters:  
    `docker compose up -d postgres-exporter-primary postgres-exporter-replica-1 postgres-exporter-replica-2`
@@ -249,4 +232,4 @@ Adjust volume names if your Compose project name is not `demo` (`docker volume l
 | `diagrams/cdc-sequence.mmd` / `.svg` | Postgres CDC sequence diagram. |
 | `README.md` | This document. |
 
-**Mongo** diagrams and CDC docs live in **`../mongo-kafka/`**. **Single** compose file: **`../docker-compose.yml`**. Other area guides: **`../cassandra/README.md`**, **`../kafka/README.md`**, **`../observability/README.md`**, **`../mongo-sharded/README.md`**.
+**Single** compose file: **`../docker-compose.yml`**. Other area guides: **`../cassandra/README.md`**, **`../kafka/README.md`**, **`../observability/README.md`**.

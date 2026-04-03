@@ -1,7 +1,8 @@
 # MongoDB (sharded) + Kafka + Debezium
 
-Part of **`dashboards/demo`**: Mongo services, **`mongo-kafka-prepare`**, **`kafka-connect`** (custom image), and exporters are defined in **`../docker-compose.yml`**.
+Part of **`dashboards/demo`**: Mongo services, **`mongo-kafka-prepare`**, **`kafka-connect`** (custom image), and exporters are defined in **`../docker-compose.yml`** (the same file as the PostgreSQL + Debezium demo; shared **Kafka**, **ZooKeeper**, **Kafka Connect**, **Prometheus**, and **Grafana**).
 
+- **PostgreSQL CDC in this compose** (different connectors and scripts): **[`../postgres-kafka/README.md`](../postgres-kafka/README.md)**
 - **Cluster bring-up** (config/shard/mongos init): **[Sharded cluster scripts → `../mongo-sharded/README.md`](../mongo-sharded/README.md)**
 - **Shared broker:** **[`../kafka/README.md`](../kafka/README.md)**
 - **Prometheus / Grafana:** **[`../observability/README.md`](../observability/README.md)**
@@ -27,7 +28,7 @@ This guide mirrors the Postgres CDC demo: **Debezium MongoDB source** (CDC via *
 1. Applications or **`mongosh`** issue writes to **`demo.demo_items`** through **`mongos`**; documents land on the appropriate shard (tic / tac / toe).
 2. **`mongo-source-demo`** reads the **change stream** through **`mongos`**, emits Debezium events, and **produces** to **`demomongo.demo.demo_items`**.
 3. **`mongo-sink-demo`** **consumes** that topic, runs **ExtractNewDocumentState**, and **writes** documents into **`demo.demo_items_from_kafka`** via **`mongos`**.
-4. **Prometheus** scrapes **`mongodb-exporter`** (targeting **`mongo-mongos1`**) and **kafka-exporter**; **Grafana** can show the **MongoDB tic/tac/toe** dashboards in **`../../grafana/generated-dashboards/`**: overview **`mongodb-tictactoe-overview.json`** and **`mongodb-tictactoe-detailed.json`** (sharding, per-shard demo/config sizes, storage and filesystem from dbStats).
+4. **Prometheus** scrapes **`mongodb-exporter`** (targeting **`mongo-mongos1`**) and **kafka-exporter**; **Grafana** can show **`mongodb-tictactoe-detailed.json`** (Mongo sharding, per-shard sizes, dbStats) and **`kafka-cluster-overview.json`** (Kafka exporter metrics); both live under **`../../grafana/generated-dashboards/`**.
 
 ### Component diagram
 
@@ -115,6 +116,82 @@ mongosh "mongodb://127.0.0.1:27025/demo" --eval 'db.demo_items.insertOne({ name:
 
 After a short delay, the same logical document (with flattened **`_id`**) should appear in **`demo_items_from_kafka`** if both connectors are healthy.
 
+## Seed bulk documents (optional)
+
+**`prepare-demo-collections.sh`** only inserts two seed docs when **`demo_items`** is empty. To add more rows anytime (similar to **`postgres-kafka/seed-dummy-data.sql`**), run **`seed-demo-items.sh`** from **`dashboards/demo`**:
+
+```bash
+chmod +x mongo-kafka/seed-demo-items.sh
+./mongo-kafka/seed-demo-items.sh           # default: 30 documents
+./mongo-kafka/seed-demo-items.sh 100       # custom count
+```
+
+By default the script uses **`mongodb://127.0.0.1:27025`** (mongos1 on the host). If you run it **inside** a container on the demo network, set **`MONGOS_URI`** so the hostname resolves:
+
+```bash
+MONGOS_URI="mongodb://mongo-mongos1:27017" ./mongo-kafka/seed-demo-items.sh 30
+```
+
+Or run via the mongos container:
+
+```bash
+docker compose exec mongo-mongos1 bash -s -- <<'EOF'
+mongosh mongodb://127.0.0.1:27017/demo --quiet --eval '
+for (let i = 1; i <= 10; i++) {
+  db.demo_items.insertOne({ name: "inline-"+i, qty: i });
+}
+print("done");
+'
+EOF
+```
+
+Each **`insertOne` / `insertMany`** still goes through **mongos**; hashed sharding (below) decides which shard stores each document.
+
+## How shards are created and how data is spread
+
+Rough order (all wired in **`../docker-compose.yml`**; scripts live under **`../mongo-sharded/`**):
+
+1. **Replica sets** — **`init-replica-sets.sh`** (service **`mongo-shard-init-rs`**) initializes **`configReplSet`** on the three config servers and **`tic`**, **`tac`**, **`toe`** on the three shard `mongod` nodes.
+2. **Routers** — three **`mongos`** processes start; they read **cluster metadata** from the config servers.
+3. **Register shards** — **`add-shards.sh`** (service **`mongo-shard-add`**) runs **`addShard`** for **`tic` / `tac` / `toe`** so each shard replica set is a storage node in the cluster (see **`add-shards.sh`**).
+4. **Shard the collections** — **`prepare-demo-collections.sh`** runs **`sh.enableSharding("demo")`** and **`sh.shardCollection("demo.demo_items", { _id: "hashed" })`** (and the same for **`demo_items_from_kafka`**). A **hashed shard key on `_id`** means MongoDB hashes each document’s **`_id`** and places it in a **chunk**; chunks are **split** and **balanced** across shards so load is spread roughly evenly as data grows (not “round‑robin per insert”).
+5. **Reads/writes** — applications use **mongos** only; mongos routes operations to the right shard using metadata in the **config** database.
+
+To inspect distribution (from **`dashboards/demo`**):
+
+```bash
+docker compose exec mongo-mongos1 mongosh --quiet --eval 'sh.status()'
+```
+
+Chunk counts per shard often appear under **collections** / **balancer** sections; the Grafana **detailed** dashboard also surfaces **chunks per shard** from the exporter.
+
+### Shard key: what it is
+
+The **shard key** is the field (or compound fields) MongoDB uses to decide **which shard** stores each document. You choose it when you run **`sh.shardCollection`**. It is not “automatically discovered”; it is a schema/cluster decision. In this demo, **`prepare-demo-collections.sh`** uses:
+
+```text
+sh.shardCollection("demo.demo_items", { _id: "hashed" })
+```
+
+So the shard key is **`_id`**, with a **hashed** strategy (MongoDB hashes the `_id` value for routing). **`demo_items_from_kafka`** is sharded the same way.
+
+Implications:
+
+- **Hashed `_id`** — Good default for **even spread** when `_id` values are uncorrelated (e.g. default **`ObjectId`**). Inserts are not “round robin”; each document’s **hash** falls into some **chunk**, and over time **splitting** and **balancing** keep chunk counts per shard roughly similar.
+- **Range shard key** (not used here) — Would use actual key values as ranges; hot spots can appear if many documents share nearby key values.
+
+The shard key is **fixed** for that collection unless you **reshard** (a deliberate migration). Changing which field you “would like” to route on later requires planning.
+
+### How mongos routes data (distribution + lookups)
+
+1. **Metadata** — **Config servers** store which **chunk** (a contiguous range of **hashed** shard key values, or key ranges for range sharding) lives on which **shard**.
+2. **Insert / update with shard key** — **mongos** computes the shard key value (here: hash of **`_id`**), finds the chunk and shard, and sends the write to that shard’s primary.
+3. **Query by `_id` (equality)** — mongos can target **one** shard (efficient).
+4. **Query without the shard key** (e.g. `find({ name: "x" })` with no `_id`) — mongos may run a **scatter‑gather** query (every shard), which still returns correct results but does more work on large clusters.
+5. **Balancer** — Background process moves **chunks** between shards when the cluster is imbalanced so data (and read/write load) tends to stay evenly spread for hashed keys.
+
+So “how it finds distribution” is: **hashed shard key → chunk boundaries in config DB → mongos picks the shard(s)** for each operation. **`sh.status()`**, **`db.demo_items.getStats()`** / **`explain`** on mongos, per-shard document counts in monitoring, and the Grafana detailed dashboard’s **chunks per shard** metrics all reflect that layout.
+
 ## Troubleshooting
 
 1. **Sink task `FAILED` with “Only Struct objects supported … found: java.lang.String”** — the sink is using **`ExtractNewRecordState`**. Use **`io.debezium.connector.mongodb.transforms.ExtractNewDocumentState`** (as in **`register-mongo-connectors.sh`**).
@@ -128,6 +205,7 @@ After a short delay, the same logical document (with flattened **`_id`**) should
 |------|------|
 | `Dockerfile.connect` | Extends Debezium Connect + Mongo sink JAR. |
 | `prepare-demo-collections.sh` | Sharding + seeds; used by **`mongo-kafka-prepare`**. |
+| `seed-demo-items.sh` | Appends **`N`** bulk docs to **`demo.demo_items`** via mongos (default **30**). |
 | `register-mongo-connectors.sh` | Registers **`mongo-source-demo`** and **`mongo-sink-demo`**. |
 | `diagrams/mongo-workflow-components.mmd` / `.svg` | Component diagram for this README. |
 | `diagrams/mongo-cdc-sequence.mmd` / `.svg` | CDC sequence diagram. |
