@@ -1,0 +1,593 @@
+{
+  "annotations": { "list": [] },
+  "description": "Kafka broker metrics from danielqsj/kafka-exporter (demo scrape job kafka_pgdemo, label kafka_cluster=pgdemo).",
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 1,
+  "hideControls": false,
+  "id": null,
+  "links": [],
+  "refresh": "30s",
+  "rows": [
+    {
+      "collapse": false,
+      "collapsed": false,
+      "height": "280px",
+      "panels": [
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "$PROMETHEUS_DS",
+          "description": "Brokers visible to kafka-exporter.",
+          "fill": 1,
+          "fillGradient": 0,
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+          "id": 501,
+          "legend": { "alignAsTable": true, "avg": false, "current": true, "max": true, "min": false, "show": true, "values": true },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "kafka_brokers{job=\"kafka_pgdemo\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "brokers",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "title": "Kafka brokers (exporter view)",
+          "tooltip": { "shared": true, "sort": 0, "value_type": "individual" },
+          "type": "graph",
+          "xaxis": { "mode": "time", "show": true, "values": [] },
+          "yaxes": [
+            { "format": "short", "logBase": 1, "min": 0, "show": true },
+            { "format": "short", "logBase": 1, "show": false }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "$PROMETHEUS_DS",
+          "description": "First derivative of high-water mark; approximates append rate per topic.",
+          "fill": 1,
+          "fillGradient": 0,
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "id": 502,
+          "legend": { "alignAsTable": true, "avg": false, "current": true, "max": true, "min": false, "show": true, "sort": "max", "sortDesc": true, "values": true },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "sum by (topic) (rate(kafka_topic_partition_current_offset{job=\"kafka_pgdemo\"}[2m]))",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "{{topic}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "title": "Offset growth rate by topic (messages/s, approx.)",
+          "tooltip": { "shared": true, "sort": 2, "value_type": "individual" },
+          "type": "graph",
+          "xaxis": { "mode": "time", "show": true, "values": [] },
+          "yaxes": [
+            { "format": "short", "logBase": 1, "min": 0, "show": true },
+            { "format": "short", "logBase": 1, "show": false }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "$PROMETHEUS_DS",
+          "fill": 1,
+          "fillGradient": 0,
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+          "id": 503,
+          "legend": { "alignAsTable": true, "avg": false, "current": true, "max": true, "min": false, "show": true, "sort": "current", "sortDesc": true, "values": true },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "sum by (topic) (kafka_topic_partition_current_offset{job=\"kafka_pgdemo\"})",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "{{topic}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "title": "Log end offset (sum by topic)",
+          "tooltip": { "shared": true, "sort": 2, "value_type": "individual" },
+          "type": "graph",
+          "xaxis": { "mode": "time", "show": true, "values": [] },
+          "yaxes": [
+            { "format": "short", "logBase": 1, "show": true },
+            { "format": "short", "logBase": 1, "show": false }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "$PROMETHEUS_DS",
+          "fill": 1,
+          "fillGradient": 0,
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+          "id": 504,
+          "legend": { "alignAsTable": true, "avg": false, "current": true, "max": true, "min": false, "show": true, "values": true },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "kafka_consumergroup_lag{job=\"kafka_pgdemo\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "{{consumergroup}} / {{topic}} / p{{partition}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "title": "Consumer group lag",
+          "tooltip": { "shared": true, "sort": 2, "value_type": "individual" },
+          "type": "graph",
+          "xaxis": { "mode": "time", "show": true, "values": [] },
+          "yaxes": [
+            { "format": "short", "logBase": 1, "min": 0, "show": true },
+            { "format": "short", "logBase": 1, "show": false }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "$PROMETHEUS_DS",
+          "description": "Non-zero indicates under-replicated partitions (ISR < replicas).",
+          "fill": 1,
+          "fillGradient": 0,
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+          "id": 505,
+          "legend": { "alignAsTable": true, "avg": false, "current": true, "max": true, "min": false, "show": true, "values": true },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "sum by (topic) (kafka_topic_partition_under_replicated_partition{job=\"kafka_pgdemo\"})",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "{{topic}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "title": "Under-replicated partitions (sum by topic)",
+          "tooltip": { "shared": true, "sort": 0, "value_type": "individual" },
+          "type": "graph",
+          "xaxis": { "mode": "time", "show": true, "values": [] },
+          "yaxes": [
+            { "format": "short", "logBase": 1, "min": 0, "show": true },
+            { "format": "short", "logBase": 1, "show": false }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "$PROMETHEUS_DS",
+          "fill": 1,
+          "fillGradient": 0,
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+          "id": 506,
+          "legend": { "alignAsTable": true, "avg": false, "current": true, "max": false, "min": false, "show": true, "values": true },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "count by (topic) (kafka_topic_partition_current_offset{job=\"kafka_pgdemo\"})",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "{{topic}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "title": "Partition count by topic",
+          "tooltip": { "shared": true, "sort": 0, "value_type": "individual" },
+          "type": "graph",
+          "xaxis": { "mode": "time", "show": true, "values": [] },
+          "yaxes": [
+            { "format": "short", "logBase": 1, "min": 0, "show": true },
+            { "format": "short", "logBase": 1, "show": false }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "$PROMETHEUS_DS",
+          "description": "One series per broker (exporter kafka_broker_info).",
+          "fill": 1,
+          "fillGradient": 0,
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 32 },
+          "id": 507,
+          "legend": { "alignAsTable": true, "avg": false, "current": true, "max": true, "min": false, "show": true, "values": true },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "kafka_broker_info{job=\"kafka_pgdemo\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "id {{id}} @ {{address}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "title": "Broker info (kafka_broker_info)",
+          "tooltip": { "shared": true, "sort": 0, "value_type": "individual" },
+          "type": "graph",
+          "xaxis": { "mode": "time", "show": true, "values": [] },
+          "yaxes": [
+            { "format": "short", "logBase": 1, "show": true },
+            { "format": "short", "logBase": 1, "show": false }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "$PROMETHEUS_DS",
+          "description": "Topic partition count from exporter metadata.",
+          "fill": 1,
+          "fillGradient": 0,
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 40 },
+          "id": 508,
+          "legend": { "alignAsTable": true, "avg": false, "current": true, "max": false, "min": false, "show": true, "values": true },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "kafka_topic_partitions{job=\"kafka_pgdemo\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "{{topic}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "title": "Partitions per topic (kafka_topic_partitions)",
+          "tooltip": { "shared": true, "sort": 2, "value_type": "individual" },
+          "type": "graph",
+          "xaxis": { "mode": "time", "show": true, "values": [] },
+          "yaxes": [
+            { "format": "short", "logBase": 1, "min": 0, "show": true },
+            { "format": "short", "logBase": 1, "show": false }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "$PROMETHEUS_DS",
+          "description": "Sum over partitions of (high water − low water). Rough retained message span before compaction.",
+          "fill": 1,
+          "fillGradient": 0,
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 40 },
+          "id": 509,
+          "legend": { "alignAsTable": true, "avg": false, "current": true, "max": true, "min": false, "show": true, "sort": "current", "sortDesc": true, "values": true },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "sum by (topic) ((kafka_topic_partition_current_offset{job=\"kafka_pgdemo\"}) - (kafka_topic_partition_oldest_offset{job=\"kafka_pgdemo\"}))",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "{{topic}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "title": "Approx. log depth (sum offset − oldest, by topic)",
+          "tooltip": { "shared": true, "sort": 2, "value_type": "individual" },
+          "type": "graph",
+          "xaxis": { "mode": "time", "show": true, "values": [] },
+          "yaxes": [
+            { "format": "short", "logBase": 1, "min": 0, "show": true },
+            { "format": "short", "logBase": 1, "show": false }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "$PROMETHEUS_DS",
+          "fill": 1,
+          "fillGradient": 0,
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 48 },
+          "id": 510,
+          "legend": { "alignAsTable": true, "avg": false, "current": true, "max": true, "min": false, "show": true, "sort": "current", "sortDesc": true, "values": true },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "kafka_consumergroup_lag_sum{job=\"kafka_pgdemo\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "{{consumergroup}} / {{topic}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "title": "Consumer lag sum (by group × topic)",
+          "tooltip": { "shared": true, "sort": 2, "value_type": "individual" },
+          "type": "graph",
+          "xaxis": { "mode": "time", "show": true, "values": [] },
+          "yaxes": [
+            { "format": "short", "logBase": 1, "min": 0, "show": true },
+            { "format": "short", "logBase": 1, "show": false }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "$PROMETHEUS_DS",
+          "fill": 1,
+          "fillGradient": 0,
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 48 },
+          "id": 511,
+          "legend": { "alignAsTable": true, "avg": false, "current": true, "max": true, "min": false, "show": true, "values": true },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "kafka_consumergroup_members{job=\"kafka_pgdemo\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "{{consumergroup}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "title": "Consumer group members",
+          "tooltip": { "shared": true, "sort": 0, "value_type": "individual" },
+          "type": "graph",
+          "xaxis": { "mode": "time", "show": true, "values": [] },
+          "yaxes": [
+            { "format": "short", "logBase": 1, "min": 0, "show": true },
+            { "format": "short", "logBase": 1, "show": false }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "$PROMETHEUS_DS",
+          "description": "Replicas minus ISR per partition, summed by topic (0 = healthy).",
+          "fill": 1,
+          "fillGradient": 0,
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 56 },
+          "id": 512,
+          "legend": { "alignAsTable": true, "avg": false, "current": true, "max": true, "min": false, "show": true, "values": true },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "sum by (topic) ((kafka_topic_partition_replicas{job=\"kafka_pgdemo\"}) - (kafka_topic_partition_in_sync_replica{job=\"kafka_pgdemo\"}))",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "{{topic}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "title": "ISR gap (replicas − in_sync_replica, by topic)",
+          "tooltip": { "shared": true, "sort": 0, "value_type": "individual" },
+          "type": "graph",
+          "xaxis": { "mode": "time", "show": true, "values": [] },
+          "yaxes": [
+            { "format": "short", "logBase": 1, "min": 0, "show": true },
+            { "format": "short", "logBase": 1, "show": false }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "$PROMETHEUS_DS",
+          "description": "Partitions not on preferred leader (should be 0 in healthy cluster).",
+          "fill": 1,
+          "fillGradient": 0,
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 56 },
+          "id": 513,
+          "legend": { "alignAsTable": true, "avg": false, "current": true, "max": true, "min": false, "show": true, "values": true },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "sum by (topic) (1 - kafka_topic_partition_leader_is_preferred{job=\"kafka_pgdemo\"})",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "{{topic}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "title": "Non-preferred leader partitions (by topic)",
+          "tooltip": { "shared": true, "sort": 0, "value_type": "individual" },
+          "type": "graph",
+          "xaxis": { "mode": "time", "show": true, "values": [] },
+          "yaxes": [
+            { "format": "short", "logBase": 1, "min": 0, "show": true },
+            { "format": "short", "logBase": 1, "show": false }
+          ]
+        }
+      ],
+      "repeat": null,
+      "showTitle": true,
+      "title": "Kafka cluster (kafka-exporter)",
+      "titleSize": "h6",
+      "type": "row"
+    }
+  ],
+  "schemaVersion": 14,
+  "style": "dark",
+  "tags": ["kafka", "kafka-exporter", "pgdemo", "demo"],
+  "templating": {
+    "list": [
+      {
+        "current": { "text": "prometheus", "value": "prometheus" },
+        "hide": 2,
+        "label": null,
+        "name": "PROMETHEUS_DS",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "type": "datasource"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {
+    "refresh_intervals": ["5s", "10s", "30s", "1m", "5m", "15m", "30m", "1h"],
+    "time_options": ["5m", "15m", "1h", "6h", "12h", "24h"]
+  },
+  "timezone": "browser",
+  "title": "Kafka cluster (demo broker)",
+  "uid": "demo-kafka-cluster",
+  "version": 1
+}
