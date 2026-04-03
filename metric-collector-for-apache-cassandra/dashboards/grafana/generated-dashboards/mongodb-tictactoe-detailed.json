@@ -1,0 +1,1236 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "description": "Extended MongoDB sharded demo (tic/tac/toe): mongos sharding stats, per-shard demo/config sizes, dbStats raw storage & disk.",
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "refresh": "30s",
+  "rows": [
+    {
+      "collapse": false,
+      "height": "300px",
+      "panels": [
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "$PROMETHEUS_DS",
+          "fill": 1,
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 0
+          },
+          "id": 401,
+          "legend": {
+            "alignAsTable": true,
+            "avg": false,
+            "current": true,
+            "max": true,
+            "min": false,
+            "show": true,
+            "values": true
+          },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "mongodb_up{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "up",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "title": "mongodb_up (mongos exporter)",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "mode": "time",
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "short",
+              "logBase": 1,
+              "show": true,
+              "max": 1,
+              "min": 0
+            },
+            {
+              "format": "short",
+              "logBase": 1,
+              "show": false
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "$PROMETHEUS_DS",
+          "fill": 1,
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 0
+          },
+          "id": 402,
+          "legend": {
+            "alignAsTable": true,
+            "avg": false,
+            "current": true,
+            "max": true,
+            "min": false,
+            "show": true,
+            "values": true
+          },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "mongodb_version_info{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "{{mongodb}} {{edition}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "title": "MongoDB version (from exporter)",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "mode": "time",
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "short",
+              "logBase": 1,
+              "show": true,
+              "max": 2,
+              "min": 0
+            },
+            {
+              "format": "short",
+              "logBase": 1,
+              "show": false
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "$PROMETHEUS_DS",
+          "fill": 1,
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 8
+          },
+          "id": 403,
+          "legend": {
+            "alignAsTable": true,
+            "avg": false,
+            "current": true,
+            "max": true,
+            "min": false,
+            "show": true,
+            "values": true
+          },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "collector_scrape_time_ms{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "{{collector}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "title": "Exporter scrape time by collector (ms)",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "mode": "time",
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "ms",
+              "logBase": 1,
+              "show": true,
+              "min": 0
+            },
+            {
+              "format": "short",
+              "logBase": 1,
+              "show": false
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "$PROMETHEUS_DS",
+          "fill": 1,
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 8
+          },
+          "id": 404,
+          "legend": {
+            "alignAsTable": true,
+            "avg": false,
+            "current": true,
+            "max": true,
+            "min": false,
+            "show": true,
+            "values": true
+          },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "mongodb_mongos_sharding_shards_total{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "shards",
+              "refId": "A"
+            },
+            {
+              "expr": "mongodb_mongos_sharding_chunks_total{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "chunks",
+              "refId": "B"
+            },
+            {
+              "expr": "mongodb_mongos_sharding_chunks_is_balanced{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "chunks_balanced (1=yes)",
+              "refId": "C"
+            },
+            {
+              "expr": "mongodb_mongos_sharding_shards_draining_total{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "shards_draining",
+              "refId": "D"
+            },
+            {
+              "expr": "mongodb_mongos_sharding_databases_total{job=\"mongodb\",instance=\"mongodb-exporter:9216\",type=\"partitioned\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "dbs partitioned",
+              "refId": "E"
+            },
+            {
+              "expr": "mongodb_mongos_sharding_databases_total{job=\"mongodb\",instance=\"mongodb-exporter:9216\",type=\"unpartitioned\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "dbs unpartitioned",
+              "refId": "F"
+            }
+          ],
+          "thresholds": [],
+          "title": "Sharding: shards, chunks, balance, draining, DB counts",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "mode": "time",
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "short",
+              "logBase": 1,
+              "show": true,
+              "min": 0
+            },
+            {
+              "format": "short",
+              "logBase": 1,
+              "show": false
+            }
+          ],
+          "description": "Mongos-level sharding stats from Percona mongodb_exporter."
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "$PROMETHEUS_DS",
+          "fill": 1,
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 16
+          },
+          "id": 405,
+          "legend": {
+            "alignAsTable": true,
+            "avg": false,
+            "current": true,
+            "max": true,
+            "min": false,
+            "show": true,
+            "values": true
+          },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "mongodb_mongos_sharding_shard_chunks_total{job=\"mongodb\",instance=\"mongodb-exporter:9216\",shard=\"tic\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "tic",
+              "refId": "A"
+            },
+            {
+              "expr": "mongodb_mongos_sharding_shard_chunks_total{job=\"mongodb\",instance=\"mongodb-exporter:9216\",shard=\"tac\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "tac",
+              "refId": "B"
+            },
+            {
+              "expr": "mongodb_mongos_sharding_shard_chunks_total{job=\"mongodb\",instance=\"mongodb-exporter:9216\",shard=\"toe\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "toe",
+              "refId": "C"
+            }
+          ],
+          "thresholds": [],
+          "title": "Chunks per shard (mongos view)",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "mode": "time",
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "short",
+              "logBase": 1,
+              "show": true,
+              "min": 0
+            },
+            {
+              "format": "short",
+              "logBase": 1,
+              "show": false
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "$PROMETHEUS_DS",
+          "fill": 1,
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 24
+          },
+          "id": 406,
+          "legend": {
+            "alignAsTable": true,
+            "avg": false,
+            "current": true,
+            "max": true,
+            "min": false,
+            "show": true,
+            "values": true
+          },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "mongodb_mongos_db_data_size_bytes{job=\"mongodb\",instance=\"mongodb-exporter:9216\",db=\"demo\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "{{shard}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "title": "demo DB data size by shard (mongos)",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "mode": "time",
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "bytes",
+              "logBase": 1,
+              "show": true,
+              "min": 0
+            },
+            {
+              "format": "short",
+              "logBase": 1,
+              "show": false
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "$PROMETHEUS_DS",
+          "fill": 1,
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 24
+          },
+          "id": 407,
+          "legend": {
+            "alignAsTable": true,
+            "avg": false,
+            "current": true,
+            "max": true,
+            "min": false,
+            "show": true,
+            "values": true
+          },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "mongodb_mongos_db_index_size_bytes{job=\"mongodb\",instance=\"mongodb-exporter:9216\",db=\"demo\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "{{shard}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "title": "demo DB index size by shard",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "mode": "time",
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "bytes",
+              "logBase": 1,
+              "show": true,
+              "min": 0
+            },
+            {
+              "format": "short",
+              "logBase": 1,
+              "show": false
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "$PROMETHEUS_DS",
+          "fill": 1,
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 32
+          },
+          "id": 408,
+          "legend": {
+            "alignAsTable": true,
+            "avg": false,
+            "current": true,
+            "max": true,
+            "min": false,
+            "show": true,
+            "values": true
+          },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "mongodb_mongos_db_collections_total{job=\"mongodb\",instance=\"mongodb-exporter:9216\",db=\"demo\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "collections {{shard}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "title": "demo: collections per shard",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "mode": "time",
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "short",
+              "logBase": 1,
+              "show": true,
+              "min": 0
+            },
+            {
+              "format": "short",
+              "logBase": 1,
+              "show": false
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "$PROMETHEUS_DS",
+          "fill": 1,
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 32
+          },
+          "id": 409,
+          "legend": {
+            "alignAsTable": true,
+            "avg": false,
+            "current": true,
+            "max": true,
+            "min": false,
+            "show": true,
+            "values": true
+          },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "mongodb_mongos_db_indexes_total{job=\"mongodb\",instance=\"mongodb-exporter:9216\",db=\"demo\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "indexes {{shard}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "title": "demo: index count per shard",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "mode": "time",
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "short",
+              "logBase": 1,
+              "show": true,
+              "min": 0
+            },
+            {
+              "format": "short",
+              "logBase": 1,
+              "show": false
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "$PROMETHEUS_DS",
+          "fill": 1,
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 40
+          },
+          "id": 410,
+          "legend": {
+            "alignAsTable": true,
+            "avg": false,
+            "current": true,
+            "max": true,
+            "min": false,
+            "show": true,
+            "values": true
+          },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "mongodb_mongos_db_data_size_bytes{job=\"mongodb\",instance=\"mongodb-exporter:9216\",db=\"config\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "{{shard}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "title": "config DB data size by shard (metadata)",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "mode": "time",
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "bytes",
+              "logBase": 1,
+              "show": true,
+              "min": 0
+            },
+            {
+              "format": "short",
+              "logBase": 1,
+              "show": false
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "$PROMETHEUS_DS",
+          "fill": 1,
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 40
+          },
+          "id": 411,
+          "legend": {
+            "alignAsTable": true,
+            "avg": false,
+            "current": true,
+            "max": true,
+            "min": false,
+            "show": true,
+            "values": true
+          },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "mongodb_mongos_db_index_size_bytes{job=\"mongodb\",instance=\"mongodb-exporter:9216\",db=\"config\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "{{shard}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "title": "config DB index size by shard",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "mode": "time",
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "bytes",
+              "logBase": 1,
+              "show": true,
+              "min": 0
+            },
+            {
+              "format": "short",
+              "logBase": 1,
+              "show": false
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "$PROMETHEUS_DS",
+          "fill": 1,
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 48
+          },
+          "id": 412,
+          "legend": {
+            "alignAsTable": true,
+            "avg": false,
+            "current": true,
+            "max": true,
+            "min": false,
+            "show": true,
+            "values": true
+          },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "mongodb_dbstats_raw_tic_mongo_shard_tic_27017_storageSize{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "tic",
+              "refId": "A"
+            },
+            {
+              "expr": "mongodb_dbstats_raw_tac_mongo_shard_tac_27017_storageSize{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "tac",
+              "refId": "B"
+            },
+            {
+              "expr": "mongodb_dbstats_raw_toe_mongo_shard_toe_27017_storageSize{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "toe",
+              "refId": "C"
+            }
+          ],
+          "thresholds": [],
+          "title": "Per-shard storageSize (dbStats raw via mongos)",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "mode": "time",
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "bytes",
+              "logBase": 1,
+              "show": true,
+              "min": 0
+            },
+            {
+              "format": "short",
+              "logBase": 1,
+              "show": false
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "$PROMETHEUS_DS",
+          "fill": 1,
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 48
+          },
+          "id": 413,
+          "legend": {
+            "alignAsTable": true,
+            "avg": false,
+            "current": true,
+            "max": true,
+            "min": false,
+            "show": true,
+            "values": true
+          },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "mongodb_dbstats_raw_tic_mongo_shard_tic_27017_objects{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "tic",
+              "refId": "A"
+            },
+            {
+              "expr": "mongodb_dbstats_raw_tac_mongo_shard_tac_27017_objects{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "tac",
+              "refId": "B"
+            },
+            {
+              "expr": "mongodb_dbstats_raw_toe_mongo_shard_toe_27017_objects{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "toe",
+              "refId": "C"
+            }
+          ],
+          "thresholds": [],
+          "title": "Per-shard objects (dbStats raw)",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "mode": "time",
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "short",
+              "logBase": 1,
+              "show": true,
+              "min": 0
+            },
+            {
+              "format": "short",
+              "logBase": 1,
+              "show": false
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "$PROMETHEUS_DS",
+          "fill": 1,
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 56
+          },
+          "id": 414,
+          "legend": {
+            "alignAsTable": true,
+            "avg": false,
+            "current": true,
+            "max": true,
+            "min": false,
+            "show": true,
+            "values": true
+          },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "mongodb_dbstats_raw_tic_mongo_shard_tic_27017_fsUsedSize{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "tic fs used",
+              "refId": "A"
+            },
+            {
+              "expr": "mongodb_dbstats_raw_tac_mongo_shard_tac_27017_fsUsedSize{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "tac fs used",
+              "refId": "B"
+            },
+            {
+              "expr": "mongodb_dbstats_raw_toe_mongo_shard_toe_27017_fsUsedSize{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "toe fs used",
+              "refId": "C"
+            }
+          ],
+          "thresholds": [],
+          "title": "Filesystem used per shard (dbStats raw)",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "mode": "time",
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "bytes",
+              "logBase": 1,
+              "show": true,
+              "min": 0
+            },
+            {
+              "format": "short",
+              "logBase": 1,
+              "show": false
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "$PROMETHEUS_DS",
+          "fill": 1,
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 56
+          },
+          "id": 415,
+          "legend": {
+            "alignAsTable": true,
+            "avg": false,
+            "current": true,
+            "max": true,
+            "min": false,
+            "show": true,
+            "values": true
+          },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "mongodb_dbstats_raw_tic_mongo_shard_tic_27017_fsTotalSize{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "tic fs total",
+              "refId": "A"
+            },
+            {
+              "expr": "mongodb_dbstats_raw_tac_mongo_shard_tac_27017_fsTotalSize{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "tac fs total",
+              "refId": "B"
+            },
+            {
+              "expr": "mongodb_dbstats_raw_toe_mongo_shard_toe_27017_fsTotalSize{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "toe fs total",
+              "refId": "C"
+            }
+          ],
+          "thresholds": [],
+          "title": "Filesystem total per shard (dbStats raw)",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "mode": "time",
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "bytes",
+              "logBase": 1,
+              "show": true,
+              "min": 0
+            },
+            {
+              "format": "short",
+              "logBase": 1,
+              "show": false
+            }
+          ]
+        }
+      ],
+      "showTitle": true,
+      "title": "MongoDB sharded cluster \u2014 detailed (tic / tac / toe)",
+      "titleSize": "h6",
+      "type": "row"
+    }
+  ],
+  "schemaVersion": 14,
+  "style": "dark",
+  "tags": [
+    "mongodb",
+    "tictactoe",
+    "sharded",
+    "detailed"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "text": "prometheus",
+          "value": "prometheus"
+        },
+        "hide": 2,
+        "label": null,
+        "name": "PROMETHEUS_DS",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "type": "datasource"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "5s",
+      "10s",
+      "30s",
+      "1m",
+      "5m",
+      "15m",
+      "30m",
+      "1h"
+    ],
+    "time_options": [
+      "5m",
+      "15m",
+      "1h",
+      "6h",
+      "12h",
+      "24h"
+    ]
+  },
+  "timezone": "browser",
+  "title": "MongoDB tic/tac/toe sharded \u2014 detailed",
+  "uid": "mongo-tictactoe-detailed",
+  "version": 1
+}

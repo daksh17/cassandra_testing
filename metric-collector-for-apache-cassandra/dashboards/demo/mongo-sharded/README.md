@@ -22,4 +22,4 @@ After **`mongo-shard-add`** succeeds, run **`mongo-kafka-prepare`** and register
 ## Further reading
 
 - Main demo index: **[`../README.md`](../README.md)**.
-- End-to-end Mongo + diagrams in **[`../postgres-kafka/README.md`](../postgres-kafka/README.md)** (Mongo section).
+- Mongo CDC + Kafka + diagrams: **[`../mongo-kafka/README.md`](../mongo-kafka/README.md)**.

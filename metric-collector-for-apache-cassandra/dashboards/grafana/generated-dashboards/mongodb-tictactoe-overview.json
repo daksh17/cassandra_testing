@@ -35,7 +35,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "mongodb_up{mongo_cluster=\"tictactoe\"}",
+              "expr": "mongodb_up{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "up",
@@ -76,21 +76,21 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "mongodb_dbstats_raw_tic_mongo_shard_tic_27017_dataSize{mongo_cluster=\"tictactoe\"}",
+              "expr": "mongodb_dbstats_raw_tic_mongo_shard_tic_27017_dataSize{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "shard tic",
               "refId": "A"
             },
             {
-              "expr": "mongodb_dbstats_raw_tac_mongo_shard_tac_27017_dataSize{mongo_cluster=\"tictactoe\"}",
+              "expr": "mongodb_dbstats_raw_tac_mongo_shard_tac_27017_dataSize{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "shard tac",
               "refId": "B"
             },
             {
-              "expr": "mongodb_dbstats_raw_toe_mongo_shard_toe_27017_dataSize{mongo_cluster=\"tictactoe\"}",
+              "expr": "mongodb_dbstats_raw_toe_mongo_shard_toe_27017_dataSize{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "shard toe",
@@ -130,14 +130,14 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "mongodb_dbstats_objects{mongo_cluster=\"tictactoe\",database=\"config\"}",
+              "expr": "mongodb_dbstats_objects{job=\"mongodb\",instance=\"mongodb-exporter:9216\",database=\"config\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "config.objects",
               "refId": "A"
             },
             {
-              "expr": "mongodb_dbstats_collections{mongo_cluster=\"tictactoe\",database=\"config\"}",
+              "expr": "mongodb_dbstats_collections{job=\"mongodb\",instance=\"mongodb-exporter:9216\",database=\"config\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "config.collections",
@@ -177,7 +177,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "collector_scrape_time_ms{mongo_cluster=\"tictactoe\"}",
+              "expr": "collector_scrape_time_ms{job=\"mongodb\",instance=\"mongodb-exporter:9216\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "{{collector}}",
