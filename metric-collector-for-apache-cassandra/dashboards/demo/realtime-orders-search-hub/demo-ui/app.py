@@ -681,36 +681,37 @@ _SCENARIO_PAGE_TEMPLATE = """<!DOCTYPE html>
     <aside class="diagram-aside">
       <h2>Vertical line (detail)</h2>
       <p class="hint" style="margin-top:0">Spine + branches. Same steps as the horizontal line above.</p>
-      <svg class="flow-svg" viewBox="0 0 300 560" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Vertical scenario timeline">
+      <svg class="flow-svg" viewBox="0 0 340 600" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Vertical scenario timeline">
         <defs>
           <marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
             <path d="M0,0 L8,4 L0,8 Z" fill="#8899a6"/>
           </marker>
         </defs>
-        <line x1="40" y1="28" x2="40" y2="480" stroke="#6cb5f4" stroke-width="3" stroke-linecap="round"/>
+        <line x1="40" y1="28" x2="40" y2="402" stroke="#6cb5f4" stroke-width="3" stroke-linecap="round"/>
         <circle class="node" cx="40" cy="40" r="9" fill="#1d9bf0" stroke="#e7e9ea" stroke-width="1.5"/>
         <circle class="node" cx="40" cy="140" r="9" fill="#1d9bf0" stroke="#e7e9ea" stroke-width="1.5"/>
-        <circle class="node" cx="40" cy="260" r="9" fill="#1d9bf0" stroke="#e7e9ea" stroke-width="1.5"/>
-        <circle class="node" cx="40" cy="380" r="9" fill="#1d9bf0" stroke="#e7e9ea" stroke-width="1.5"/>
+        <circle class="node" cx="40" cy="280" r="9" fill="#1d9bf0" stroke="#e7e9ea" stroke-width="1.5"/>
+        <circle class="node" cx="40" cy="400" r="9" fill="#1d9bf0" stroke="#e7e9ea" stroke-width="1.5"/>
         <path class="arrow" d="M55 40 L115 40"/>
         <text x="120" y="44" font-size="11px" fill="#e7e9ea" font-weight="700">① Faker → Mongo</text>
         <text x="120" y="58" class="muted">demo.scenario_products</text>
         <path class="arrow" d="M55 140 L115 140"/>
-        <text x="120" y="132" font-size="11px" fill="#e7e9ea" font-weight="700">② Mongo → bus</text>
-        <text x="120" y="146" class="muted">PG mirror · Kafka · OS · Redis</text>
-        <path class="fan" stroke="#4a5f78" d="M115 152 L115 168 L200 168 M115 168 L230 152 M115 168 L260 180"/>
-        <text x="205" y="176" class="muted">catalog.changes</text>
-        <text x="240" y="190" class="muted">hub-scenario-pipeline</text>
-        <path class="arrow" d="M55 260 L115 260"/>
-        <text x="120" y="252" font-size="11px" fill="#e7e9ea" font-weight="700">③ New order</text>
-        <text x="120" y="266" class="muted">scenario_orders · events · OS · Redis · C*</text>
-        <path class="arrow" d="M55 380 L115 380"/>
-        <text x="120" y="372" font-size="11px" fill="#e7e9ea" font-weight="700">④ Fulfillment</text>
-        <text x="120" y="386" class="muted">fulfillment_lines · pipeline.sync · OS · C*</text>
-        <text x="55" y="430" font-size="10px" fill="#8899a6">*C* = Cassandra timeline</text>
-        <text x="55" y="448" class="muted">ORDER_PLACED · FULFILLMENT_READY</text>
-        <text x="55" y="472" font-size="10px" fill="#8899a6">Topics</text>
-        <text x="55" y="488" class="muted">scenario.catalog / .orders / .pipeline</text>
+        <text x="120" y="128" font-size="11px" fill="#e7e9ea" font-weight="700">② Sync catalog</text>
+        <text x="120" y="142" class="muted">PG+K+OS+R · mirror → bus</text>
+        <text x="118" y="158" class="muted" font-size="10px">K · scenario.catalog.changes</text>
+        <text x="118" y="172" class="muted" font-size="10px">OS · index hub-scenario-pipeline</text>
+        <path class="arrow" d="M55 280 L115 280"/>
+        <text x="120" y="272" font-size="11px" fill="#e7e9ea" font-weight="700">③ New order</text>
+        <text x="120" y="286" class="muted">PG+K+OS+R+C* · scenario_orders</text>
+        <path class="arrow" d="M55 400 L115 400"/>
+        <text x="120" y="392" font-size="11px" fill="#e7e9ea" font-weight="700">④ Fulfillment</text>
+        <text x="120" y="406" class="muted">PG+K+OS+C* · scenario_fulfillment_lines</text>
+        <text x="16" y="448" font-size="10px" fill="#8899a6">Key · C* Cassandra · K Kafka · OS OpenSearch · R Redis · PG Postgres</text>
+        <text x="16" y="464" class="muted" font-size="10px">PG workload SQL · pg_stat_statements on DB postgres</text>
+        <text x="16" y="482" class="muted" font-size="10px">ORDER_PLACED (step ③) · FULFILLMENT_READY (step ④)</text>
+        <text x="16" y="500" font-size="10px" fill="#8899a6">Kafka topics</text>
+        <text x="16" y="514" class="muted" font-size="10px">scenario.catalog.changes · scenario.orders.events</text>
+        <text x="16" y="528" class="muted" font-size="10px">scenario.pipeline.sync</text>
       </svg>
     </aside>
   </div>
