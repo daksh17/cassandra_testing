@@ -252,7 +252,7 @@ WITH_PORT_FORWARD=1 ./k8s/scripts/demo-hub.sh start
 # If Prometheus is down but you want other ports: SKIP_PROMETHEUS=1 ./k8s/scripts/demo-hub.sh port-forward
 ```
 
-**`wait-ready`** / **`port-forward`** use `kubectl wait` on **Deployments** labeled **`app.kubernetes.io/part-of=demo-hub`** and **`kubectl rollout status`** on **`statefulset/cassandra`**. Override wait duration with **`WAIT_READY_TIMEOUT`** (default **`900s`**). Legacy alias: **`./k8s/scripts/stop-start-all-k8s.sh`** → **`demo-hub.sh restart`** (honours **`REGEN`**, **`SKIP_BOOTSTRAP`**).
+**`wait-ready`** / **`port-forward`** use `kubectl wait` on **Deployments** labeled **`app.kubernetes.io/part-of=demo-hub`** and **`kubectl rollout status`** on **`statefulset/cassandra`**. Override wait duration with **`WAIT_READY_TIMEOUT`** (default **`900s`**). Legacy alias **`./k8s/scripts/stop-start-all-k8s.sh`** runs **`demo-hub.sh restart`** and, by default, sets **`APPLY_CASSANDRA_CQL_NODEPORT=1`** so **[`optional-cassandra-0-cql-nodeport.yaml`](optional-cassandra-0-cql-nodeport.yaml)** is applied after bootstrap (DBeaver / local CQL on NodePort **30942**). Use **`APPLY_CASSANDRA_CQL_NODEPORT=0`** to skip. **`demo-hub.sh restart`** alone does not set that unless you **`export APPLY_CASSANDRA_CQL_NODEPORT=1`**. Other env: **`REGEN`**, **`SKIP_BOOTSTRAP`**, **`WITH_PORT_FORWARD`**.
 
 **Docker Compose** (not Kubernetes): from `dashboards/demo` run `docker compose down` then `./start-full-stack.sh` or `docker compose up -d`.
 
