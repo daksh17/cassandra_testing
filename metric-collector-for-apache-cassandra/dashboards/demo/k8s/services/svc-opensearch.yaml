@@ -1,0 +1,19 @@
+# Generated — ClusterIP (opensearch)
+apiVersion: v1
+kind: Service
+metadata:
+  name: opensearch
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: opensearch
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: opensearch
+  ports:
+    - port: 9200
+      targetPort: 9200
+      name: p-9200
+    - port: 9600
+      targetPort: 9600
+      name: p-9600

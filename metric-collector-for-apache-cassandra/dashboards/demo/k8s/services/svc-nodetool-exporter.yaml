@@ -1,0 +1,16 @@
+# Generated — ClusterIP (nodetool-exporter)
+apiVersion: v1
+kind: Service
+metadata:
+  name: nodetool-exporter
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: nodetool-exporter
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: nodetool-exporter
+  ports:
+    - port: 9104
+      targetPort: 9104
+      name: p-9104

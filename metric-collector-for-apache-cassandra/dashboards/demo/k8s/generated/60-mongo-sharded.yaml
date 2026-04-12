@@ -1,0 +1,574 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-config1
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongo-config1
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: mongo-config-servers
+    demo-hub.io/mongo-role: configsvr
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mongo-config1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mongo-config1
+        app.kubernetes.io/part-of: demo-hub
+        demo-hub.io/group: mongo-config-servers
+        demo-hub.io/mongo-role: configsvr
+    spec:
+      containers:
+        - name: mongo-config1
+          image: mongo:7.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - "mongod"
+            - "--port"
+            - "27017"
+            - "--configsvr"
+            - "--replSet"
+            - "configReplSet"
+            - "--bind_ip_all"
+          volumeMounts:
+            - name: data
+              mountPath: /data/db
+          ports:
+            - containerPort: 27017
+              name: mongo
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-config1
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongo-config1
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: mongo-config-servers
+    demo-hub.io/mongo-role: configsvr
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: mongo-config1
+  ports:
+    - port: 27017
+      targetPort: 27017
+      name: mongo
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-config2
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongo-config2
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: mongo-config-servers
+    demo-hub.io/mongo-role: configsvr
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mongo-config2
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mongo-config2
+        app.kubernetes.io/part-of: demo-hub
+        demo-hub.io/group: mongo-config-servers
+        demo-hub.io/mongo-role: configsvr
+    spec:
+      containers:
+        - name: mongo-config2
+          image: mongo:7.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - "mongod"
+            - "--port"
+            - "27017"
+            - "--configsvr"
+            - "--replSet"
+            - "configReplSet"
+            - "--bind_ip_all"
+          volumeMounts:
+            - name: data
+              mountPath: /data/db
+          ports:
+            - containerPort: 27017
+              name: mongo
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-config2
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongo-config2
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: mongo-config-servers
+    demo-hub.io/mongo-role: configsvr
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: mongo-config2
+  ports:
+    - port: 27017
+      targetPort: 27017
+      name: mongo
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-config3
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongo-config3
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: mongo-config-servers
+    demo-hub.io/mongo-role: configsvr
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mongo-config3
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mongo-config3
+        app.kubernetes.io/part-of: demo-hub
+        demo-hub.io/group: mongo-config-servers
+        demo-hub.io/mongo-role: configsvr
+    spec:
+      containers:
+        - name: mongo-config3
+          image: mongo:7.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - "mongod"
+            - "--port"
+            - "27017"
+            - "--configsvr"
+            - "--replSet"
+            - "configReplSet"
+            - "--bind_ip_all"
+          volumeMounts:
+            - name: data
+              mountPath: /data/db
+          ports:
+            - containerPort: 27017
+              name: mongo
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-config3
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongo-config3
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: mongo-config-servers
+    demo-hub.io/mongo-role: configsvr
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: mongo-config3
+  ports:
+    - port: 27017
+      targetPort: 27017
+      name: mongo
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-shard-tic
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongo-shard-tic
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: mongo-shards
+    demo-hub.io/mongo-role: shardsvr
+    demo-hub.io/shard-rs: tic
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mongo-shard-tic
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mongo-shard-tic
+        app.kubernetes.io/part-of: demo-hub
+        demo-hub.io/group: mongo-shards
+        demo-hub.io/mongo-role: shardsvr
+        demo-hub.io/shard-rs: tic
+    spec:
+      containers:
+        - name: mongo-shard-tic
+          image: mongo:7.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - "mongod"
+            - "--port"
+            - "27017"
+            - "--shardsvr"
+            - "--replSet"
+            - "tic"
+            - "--bind_ip_all"
+          volumeMounts:
+            - name: data
+              mountPath: /data/db
+          ports:
+            - containerPort: 27017
+              name: mongo
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-shard-tic
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongo-shard-tic
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: mongo-shards
+    demo-hub.io/mongo-role: shardsvr
+    demo-hub.io/shard-rs: tic
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: mongo-shard-tic
+  ports:
+    - port: 27017
+      targetPort: 27017
+      name: mongo
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-shard-tac
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongo-shard-tac
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: mongo-shards
+    demo-hub.io/mongo-role: shardsvr
+    demo-hub.io/shard-rs: tac
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mongo-shard-tac
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mongo-shard-tac
+        app.kubernetes.io/part-of: demo-hub
+        demo-hub.io/group: mongo-shards
+        demo-hub.io/mongo-role: shardsvr
+        demo-hub.io/shard-rs: tac
+    spec:
+      containers:
+        - name: mongo-shard-tac
+          image: mongo:7.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - "mongod"
+            - "--port"
+            - "27017"
+            - "--shardsvr"
+            - "--replSet"
+            - "tac"
+            - "--bind_ip_all"
+          volumeMounts:
+            - name: data
+              mountPath: /data/db
+          ports:
+            - containerPort: 27017
+              name: mongo
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-shard-tac
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongo-shard-tac
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: mongo-shards
+    demo-hub.io/mongo-role: shardsvr
+    demo-hub.io/shard-rs: tac
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: mongo-shard-tac
+  ports:
+    - port: 27017
+      targetPort: 27017
+      name: mongo
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-shard-toe
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongo-shard-toe
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: mongo-shards
+    demo-hub.io/mongo-role: shardsvr
+    demo-hub.io/shard-rs: toe
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mongo-shard-toe
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mongo-shard-toe
+        app.kubernetes.io/part-of: demo-hub
+        demo-hub.io/group: mongo-shards
+        demo-hub.io/mongo-role: shardsvr
+        demo-hub.io/shard-rs: toe
+    spec:
+      containers:
+        - name: mongo-shard-toe
+          image: mongo:7.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - "mongod"
+            - "--port"
+            - "27017"
+            - "--shardsvr"
+            - "--replSet"
+            - "toe"
+            - "--bind_ip_all"
+          volumeMounts:
+            - name: data
+              mountPath: /data/db
+          ports:
+            - containerPort: 27017
+              name: mongo
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-shard-toe
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongo-shard-toe
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: mongo-shards
+    demo-hub.io/mongo-role: shardsvr
+    demo-hub.io/shard-rs: toe
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: mongo-shard-toe
+  ports:
+    - port: 27017
+      targetPort: 27017
+      name: mongo
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-mongos1
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongo-mongos1
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: mongo-mongos
+    demo-hub.io/mongo-role: mongos
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mongo-mongos1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mongo-mongos1
+        app.kubernetes.io/part-of: demo-hub
+        demo-hub.io/group: mongo-mongos
+        demo-hub.io/mongo-role: mongos
+    spec:
+      containers:
+        - name: mongo-mongos1
+          image: mongo:7.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - "mongos"
+            - "--configdb"
+            - "configReplSet/mongo-config1:27017,mongo-config2:27017,mongo-config3:27017"
+            - "--bind_ip_all"
+          ports:
+            - containerPort: 27017
+              name: mongo
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-mongos1
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongo-mongos1
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: mongo-mongos
+    demo-hub.io/mongo-role: mongos
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: mongo-mongos1
+  ports:
+    - port: 27017
+      targetPort: 27017
+      name: mongo
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-mongos2
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongo-mongos2
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: mongo-mongos
+    demo-hub.io/mongo-role: mongos
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mongo-mongos2
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mongo-mongos2
+        app.kubernetes.io/part-of: demo-hub
+        demo-hub.io/group: mongo-mongos
+        demo-hub.io/mongo-role: mongos
+    spec:
+      containers:
+        - name: mongo-mongos2
+          image: mongo:7.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - "mongos"
+            - "--configdb"
+            - "configReplSet/mongo-config1:27017,mongo-config2:27017,mongo-config3:27017"
+            - "--bind_ip_all"
+          ports:
+            - containerPort: 27017
+              name: mongo
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-mongos2
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongo-mongos2
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: mongo-mongos
+    demo-hub.io/mongo-role: mongos
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: mongo-mongos2
+  ports:
+    - port: 27017
+      targetPort: 27017
+      name: mongo
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-mongos3
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongo-mongos3
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: mongo-mongos
+    demo-hub.io/mongo-role: mongos
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mongo-mongos3
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mongo-mongos3
+        app.kubernetes.io/part-of: demo-hub
+        demo-hub.io/group: mongo-mongos
+        demo-hub.io/mongo-role: mongos
+    spec:
+      containers:
+        - name: mongo-mongos3
+          image: mongo:7.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - "mongos"
+            - "--configdb"
+            - "configReplSet/mongo-config1:27017,mongo-config2:27017,mongo-config3:27017"
+            - "--bind_ip_all"
+          ports:
+            - containerPort: 27017
+              name: mongo
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-mongos3
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongo-mongos3
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: mongo-mongos
+    demo-hub.io/mongo-role: mongos
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: mongo-mongos3
+  ports:
+    - port: 27017
+      targetPort: 27017
+      name: mongo

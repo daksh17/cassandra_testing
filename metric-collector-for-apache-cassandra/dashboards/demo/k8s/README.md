@@ -1,0 +1,316 @@
+# Kubernetes manifests (demo-hub)
+
+Docker Compose for this stack uses **`name: demo-hub`** in [`../docker-compose.yml`](../docker-compose.yml). **[`../start-full-stack.sh`](../start-full-stack.sh)** is the supported path for a full local run.
+
+If you are new to Kubernetes, read **[Kubernetes basics (for this demo)](#kubernetes-basics-for-this-demo)** first, then **[Basic diagnostics](#basic-diagnostics)** when something fails.
+
+---
+
+## Kubernetes basics (for this demo)
+
+Kubernetes (**K8s**) runs **workloads** on one or more **nodes** (machines or VMs). You declare what you want in YAML; the **control plane** (scheduler, API) places **pods** on nodes and keeps them running.
+
+### Core ideas
+
+| Concept | Plain-language meaning |
+|--------|-------------------------|
+| **Cluster** | The whole K8s installation (API + nodes + add-ons). |
+| **Node** | One machine (physical or VM) that runs your containers. Local clusters (Docker Desktop, OrbStack, kind, minikube) often have **one** node. |
+| **Namespace** | A logical partition of resources (like a folder). This demo uses **`demo-hub`** so names don’t collide with other apps. Most commands need **`-n demo-hub`**. |
+| **Pod** | The smallest runnable unit: usually **one main container** (sometimes + sidecars/init). A pod gets an IP inside the cluster and shares storage/network namespace. |
+| **Deployment** | Runs **stateless** apps: keeps **N replicas** of a pod template, rolls out updates, replaces crashed pods. Example here: **Grafana**, **Prometheus**, **Kafka**, many **exporters**. |
+| **StatefulSet** | Like a Deployment, but for **stateful** apps: **stable names** (`cassandra-0`, `cassandra-1`, …), ordered start, and often paired with a **headless Service** for DNS per pod. Example: **Cassandra ring**. |
+| **Service** | A **stable DNS name + port** that load-balances to matching pods. **ClusterIP** (default here) is only reachable **inside** the cluster unless you **port-forward** or use Ingress/LoadBalancer. |
+| **Headless Service** (`clusterIP: None`) | No cluster virtual IP; DNS returns **each pod’s IP** (used for Cassandra peer discovery). |
+| **ConfigMap** | Key/value (often files) injected into pods as env vars or mounted files. Example: **Prometheus config**, **Grafana datasources**, **OpenSearch `opensearch.yml`**, **MCAC agent config**. |
+| **Job** | Runs a pod **to completion** (migrations, bootstrap SQL). Example: **Postgres/Cassandra/Mongo bootstrap** jobs. |
+| **ReplicaSet** | Implementation detail behind Deployments; you rarely edit it directly. |
+
+### Which Kubernetes resource is used for what (this repo)
+
+| K8s resource | Role in *this* demo |
+|--------------|---------------------|
+| **Namespace** (`demo-hub`) | Isolates all demo objects; use `-n demo-hub` on almost every command. |
+| **Deployment** | Long-running **stateless** processes: ZooKeeper, Kafka, Postgres/Redis/Mongo/OpenSearch **pods**, Grafana, Prometheus, Connect, exporters, hub UI, etc. |
+| **StatefulSet** | **Cassandra** 3-node ring: predictable pod names and storage identity per replica. |
+| **Service (ClusterIP)** | Stable names like **`kafka:9092`**, **`prometheus:9090`**, **`cassandra:9042`** inside the namespace—what apps use instead of pod IPs. |
+| **Service (headless)** | **`cassandra-headless`** — DNS for **`cassandra-0.cassandra-headless.demo-hub.svc.cluster.local`** etc., for gossip/seeds and MCAC scrape targets. |
+| **ConfigMap** | Injects **Prometheus `prometheus.yaml`**, **`tg_mcac.json`** (MCAC scrape list), Grafana provisioning, OpenSearch config, MCAC agent YAML beside Cassandra. |
+| **Job** | One-shot bootstrap: schema, replication setup, Mongo sharding steps (see `README-jobs.md`). |
+| **emptyDir volume** | Ephemeral disk for container data in the generated manifests (lost when the pod is deleted). Not persistent across node loss. |
+
+**How traffic flows:** A pod calls another **by Service DNS**, e.g. `http://prometheus:9090` from Grafana. Your laptop does **not** see ClusterIP services until you run **`kubectl port-forward`** (see [`scripts/port-forward-demo-hub.sh`](scripts/port-forward-demo-hub.sh)).
+
+---
+
+## How pods talk to each other (and how that relates to Postgres, Mongo, and Cassandra)
+
+In Kubernetes, the word **“node”** usually means a **worker machine** (VM or bare metal) that runs containers. **Database nodes** in this demo are **Pods** (or sets of Pods) scheduled onto those machines. They discover and reach each other using **cluster DNS** and **Services**, not by hard-coding Pod IPs (which change when Pods restart).
+
+### Services, DNS, and Pod IPs
+
+| Mechanism | What it gives you |
+|-----------|-------------------|
+| **Pod IP** | Each Pod gets an IP on the cluster network. It is **ephemeral** — do not bake it into config. |
+| **ClusterIP Service** | A **stable virtual IP + port** inside the namespace. **kube-proxy** (or equivalent) forwards traffic to **one of** the Pods that match the Service’s **selector**. Short name: **`postgresql-primary`** resolves to that Service. |
+| **Headless Service** (`clusterIP: None`) | No single cluster IP. For a **StatefulSet**, DNS returns **one A record per Pod**, e.g. **`cassandra-0.cassandra-headless.demo-hub.svc.cluster.local`**, so processes can address **specific replicas** by name. |
+| **FQDN** | Long form: **`<service>.<namespace>.svc.cluster.local`**. Inside the same namespace you can often use just **`<service>`** or **`<pod>-<ordinal>.<headless-service>`**. |
+
+So: **stateless clients** (Grafana → Prometheus) use a normal Service name. **Stateful clusters** (Cassandra, Mongo replica sets) use **per-Pod DNS** or **Service names** as documented by the image so peers connect over the **same ports as on bare metal** (Postgres **5432**, Cassandra **7000/7001** gossip, **9042** CQL, Mongo **27017**), but the **hostname** is a Kubernetes DNS name.
+
+### PostgreSQL replication (primary + replicas)
+
+The generator ([`40-postgresql-ha.yaml`](generated/40-postgresql-ha.yaml)) runs **three Deployments**: **`postgresql-primary`** (Bitnami **`POSTGRESQL_REPLICATION_MODE=master`**) and **`postgresql-replica-1`**, **`postgresql-replica-2`** (**`slave`**).
+
+- **How replicas find the primary:** Each replica has **`POSTGRESQL_MASTER_HOST=postgresql-primary`**. That is the **Kubernetes Service** name for the primary Pod. DNS resolves it to the primary’s **ClusterIP**; the replica opens a normal **PostgreSQL streaming replication** connection to **port 5432** (WAL stream), using user **`replicator`** / **`replicatorpass`**. Each replica uses a distinct **`primary_slot_name`** (`pgdemo_phys_replica_1` / `_2`) so physical slots line up with the bootstrap SQL.
+- **What the primary enables:** **`wal_level=logical`**, **`max_replication_slots`**, **`max_wal_senders`** — required so **logical replication** (Debezium-style) can work after the **[`45-postgres-bootstrap-job.yaml`](generated/45-postgres-bootstrap-job.yaml)** Job runs (publication, replication slots for the demo pipeline). That Job is **not** what creates the Bitnami streaming replicas; it extends the primary for **logical** CDC on top of the running **physical** replica topology.
+
+From another Pod in **`demo-hub`**, you connect to the writer with host **`postgresql-primary`** and to a specific read replica with **`postgresql-replica-1`** / **`postgresql-replica-2`** (each has its own Service).
+
+### Cassandra: ring, seeds, and replication factor
+
+Cassandra runs as a **StatefulSet** ([`30-cassandra-ring.yaml`](generated/30-cassandra-ring.yaml)) with **`replicas: 3`** → Pods **`cassandra-0`**, **`cassandra-1`**, **`cassandra-2`**.
+
+- **Seeds:** **`CASSANDRA_SEEDS`** is set to **`cassandra-0.cassandra-headless.<namespace>.svc.cluster.local`** so new nodes join the ring via stable DNS to the first ordinal.
+- **Peer / gossip:** Cassandra uses **inter-node ports** (e.g. **7000** / **7001**) between Pods. The **headless Service** **`cassandra-headless`** exposes those ports and publishes DNS for each Pod so members can resolve one another (gossip does not rely on a single load-balanced VIP for “who is in the cluster”).
+- **Client CQL:** The regular Service **`cassandra`** (ClusterIP) balances **CQL :9042** across ready Pods for app-style access.
+- **Replication factor:** The keyspace **RF=3** (and schema) is applied by the **`cassandra-demo-schema`** Job ([`35-cassandra-schema-job.yaml`](generated/35-cassandra-schema-job.yaml)), which talks to **`cassandra-0`** via headless DNS — same idea as `nodetool`/CQL against one coordinator.
+
+So in K8s, Cassandra “nodes” are **Pods**; they talk to each other like on VMs, but **addresses are Kubernetes DNS names** on the cluster network.
+
+### MongoDB: config servers, shards, and mongos
+
+The generator ([`60-mongo-sharded.yaml`](generated/60-mongo-sharded.yaml)) matches the Compose layout:
+
+| Role | Deployments | Purpose |
+|------|-------------|---------|
+| **Config servers** | **`mongo-config1`**, **`mongo-config2`**, **`mongo-config3`** | Run **`mongod --configsvr`**; form replica set **`configReplSet`**. Hold cluster metadata (which chunks live on which shard). |
+| **Shards** | **`mongo-shard-tic`**, **`mongo-shard-tac`**, **`mongo-shard-toe`** | Run **`mongod --shardsvr`**; each shard is its own **replica set** (`tic`, `tac`, `toe`). Store actual data. |
+| **Routers** | **`mongo-mongos1`**, **`mongo-mongos2`**, **`mongo-mongos3`** | Run **`mongos`** with **`--configdb`** pointing at **`configReplSet/mongo-config1:27017,mongo-config2:27017,mongo-config3:27017`**. Those hostnames are **Kubernetes Service names** in **`demo-hub`**; each resolves to the corresponding config **Pod**. |
+
+Applications and demos should use a **`mongos`** Service (e.g. port-forward to **`mongo-mongos1`**) — **`mongos`** routes queries to the right shard using metadata from the config servers. **Sharding is not automatic** when the processes start: the **[`61-mongo-bootstrap-job.yaml`](generated/61-mongo-bootstrap-job.yaml)** Job runs the same shell steps as Compose (init config replica set, init shard replica sets, **`addShard`**, collection sharding). Until that Job succeeds, you have processes but not a finished sharded cluster.
+
+### Summary
+
+- **K8s networking:** Pods reach each other with **Service DNS** (and **headless** DNS for StatefulSets). **“Nodes”** in the database sense = **Pods** here.
+- **Postgres:** Streaming replication from **primary Service** to replicas; bootstrap Job adds **logical** replication artifacts for CDC.
+- **Cassandra:** Gossip + CQL across Pods; **seeds** and **headless DNS** replace fixed IP lists.
+- **Mongo:** **mongos** → **config servers** + **shard** `mongod`s; bootstrap Job wires replica sets and **`addShard`**.
+
+---
+
+## Basic diagnostics
+
+`kubectl` talks to the cluster API. Always set the namespace for this demo:
+
+```bash
+export NS=demo-hub   # optional shorthand
+kubectl get pods -n demo-hub
+```
+
+### Commands to learn first
+
+| Command | What it tells you |
+|--------|-------------------|
+| `kubectl get pods -n demo-hub` | List pods and **phase** (`Running`, `Pending`, `Error`, …). |
+| `kubectl get pods -n demo-hub -o wide` | Adds **NODE** and **IP** (see which node runs the workload). |
+| `kubectl describe pod -n demo-hub <pod-name>` | **Events** at the bottom are critical: scheduling failures, image pull errors, disk pressure, OOM, etc. |
+| `kubectl logs -n demo-hub deploy/<name> --tail=100` | Last lines of the **main container** for a Deployment. |
+| `kubectl logs -n demo-hub <pod-name> -c <container> --tail=100` | Use **`-c`** when the pod has multiple containers (e.g. init + app). |
+| `kubectl get events -n demo-hub --sort-by='.lastTimestamp' \| tail -30` | Recent cluster events (often explains mass `Pending` or evictions). |
+| `kubectl get svc -n demo-hub` | Services and **ports** exposed inside the namespace. |
+| `kubectl get deploy,sts -n demo-hub` | Deployments and StatefulSets (desired vs ready replicas). |
+
+### Pod phases (what `STATUS` means)
+
+| Phase | Meaning |
+|-------|---------|
+| **Pending** | Not running yet—often **scheduling** (no CPU/RAM, **disk-pressure** taint, volume issue) or **image pull**. Read **Events** on `kubectl describe pod`. |
+| **Running** | At least one container is up (may still be crash-looping if `READY` is `0/1`). |
+| **Error** / **CrashLoopBackOff** | Container exits repeatedly—use **`kubectl logs`** on that pod. |
+| **Completed** | All containers exited **0**. Normal for **Jobs**; for Deployments it usually means the process exited (misconfig or wrong image). |
+| **ImagePullBackOff** | Node cannot download the image (name wrong, private registry, or offline). |
+
+### Node-level issues (why “everything is Pending”)
+
+If **`describe pod`** shows **`FailedScheduling`** and **`disk-pressure`** (or **`Insufficient memory` / `cpu`**):
+
+- **Disk pressure:** Free space on the host (Docker/OrbStack disk, prune unused images/volumes). Until the taint clears, new pods may not schedule.
+- **Insufficient resources:** The demo requests a lot of RAM/CPU; a single small node cannot fit every pod. Free resources or run a subset of manifests.
+
+See **[Troubleshooting](#troubleshooting)** for stack-specific issues.
+
+---
+
+## Generated workloads (recommended)
+
+**[`scripts/gen_demo_hub_k8s.py`](scripts/gen_demo_hub_k8s.py)** mirrors Compose **service names, images, env, and ports** into **`generated/`**:
+
+| File | Contents |
+|------|----------|
+| `00-namespace.yaml` | Copy of [`namespace.yaml`](namespace.yaml) |
+| `10-observability-prometheus-grafana.yaml` | Prometheus + Grafana **Deployments**, **Services**, **ConfigMaps** — embeds [`dashboards/prometheus/prometheus.yaml`](../../prometheus/prometheus.yaml), [`demo/tg_mcac.json`](../tg_mcac.json), [`dashboards/grafana/prometheus-datasource.yaml`](../../grafana/prometheus-datasource.yaml), [`dashboards/grafana/dashboards.yaml`](../../grafana/dashboards.yaml), and all [`dashboards/grafana/generated-dashboards/*.json`](../../grafana/generated-dashboards/) at generate time (same layout as Compose). |
+| `20-zookeeper-kafka.yaml` | ZooKeeper + Kafka |
+| `30-cassandra-ring.yaml` | Cassandra **StatefulSet** (3 replicas) + headless + client **Service** |
+| `40-postgresql-ha.yaml` | Bitnami Postgres primary + 2 replicas |
+| `50-redis.yaml` | Redis + redis-exporter |
+| `60-mongo-sharded.yaml` | Config servers, shard `mongod`s, mongos (same DNS names as Compose) |
+| `70-kafka-connect.yaml` | Kafka Connect |
+| `80-exporters.yaml` | Postgres exporters, kafka-exporter, mongodb-exporter |
+| `90-opensearch.yaml` | OpenSearch (+ ConfigMap for `opensearch.yml`), Dashboards, elasticsearch-exporter |
+| `95-hub-demo-ui.yaml` | Hub demo UI |
+| `98-nodetool-stress.yaml` | Nodetool-exporter + tlp-stress |
+| `all.yaml` | Concatenation of the above (68 documents) |
+| `README-jobs.md` | Notes on one-shot **Jobs** (MCAC init, connector registration, mongo RS init) not fully generated |
+
+Labels:
+
+- **`demo-hub.io/group`**: `cassandra-ring`, `postgres-ha`, `mongo-config-servers`, `mongo-shards`, `mongo-mongos`, `kafka`, `observability`, `opensearch`, …
+- **`app.kubernetes.io/part-of: demo-hub`**
+
+**Regenerate:**
+
+```bash
+python3 scripts/gen_demo_hub_k8s.py
+```
+
+**Grafana dashboards & Prometheus (how data flows):**
+
+- **Grafana does not scrape exporters.** It only talks to **Prometheus** (datasource URL `http://prometheus:9090`). Whatever Prometheus has scraped becomes queryable in Grafana.
+- **Prometheus** embeds [`dashboards/prometheus/prometheus.yaml`](../../prometheus/prometheus.yaml) with **Kubernetes-specific tweaks** from **`gen_demo_hub_k8s.py`**: MCAC file_sd uses **`cassandra-0..2.cassandra-headless:9103`** (StatefulSet), not Compose hostnames; the **`mongodb-exporter-local`** scrape (Compose-only) is **removed**; MCAC job uses **`scrape_interval: 30s`** and **`scrape_timeout: 28s`** (timeout must not exceed interval — a 30s timeout with a 15s interval breaks Prometheus 2.17). Jobs otherwise match the file: `mcac`, `nodetool`, `mongodb`, `postgres_pgdemo`, `kafka_pgdemo`, `redis_demo`, `opensearch_demo`, self-scrape.
+- After editing JSON dashboards, run [`dashboards/grafana/make-dashboards.sh`](../../grafana/make-dashboards.sh) if your workflow regenerates them, then **`python3 scripts/gen_demo_hub_k8s.py`** and re-apply `generated/10-observability-prometheus-grafana.yaml`.
+
+**Apply:**
+
+Prefer **`generated/all.yaml` once** (do **not** also apply every other file in `generated/` — that would apply the same objects twice):
+
+```bash
+kubectl apply -f generated/all.yaml
+```
+
+(`namespace` is included at the top of `all.yaml`.)
+
+**Connect from your laptop (databases + Grafana + Prometheus + Hub UI):** All of these are **ClusterIP** — nothing is reachable from your Mac/PC except **inside** the cluster until you **port-forward**, use an **Ingress**, or a **LoadBalancer**.
+
+From `dashboards/demo`, run (leave the terminal open):
+
+```bash
+chmod +x k8s/scripts/port-forward-demo-hub.sh
+./k8s/scripts/port-forward-demo-hub.sh
+```
+
+Then open or connect locally:
+
+| Service | URL / connection |
+|--------|-------------------|
+| **Grafana** | http://127.0.0.1:3000/ |
+| **Prometheus** | http://127.0.0.1:9090/ |
+| **Hub demo UI** | http://127.0.0.1:8888/ |
+| **OpenSearch** (REST API) | http://127.0.0.1:9200/ |
+| **OpenSearch Dashboards** | http://127.0.0.1:5601/ (same URL the hub UI home page links to) |
+| **Postgres** | `psql "postgresql://demo:demopass@127.0.0.1:5432/demo"` |
+| **Cassandra** | `cqlsh 127.0.0.1 9042` |
+| **MongoDB (mongos)** | `mongosh "mongodb://127.0.0.1:27017/"` |
+
+If a port is already in use locally, override before running the script, e.g. `LOCAL_PROM_PORT=19090 LOCAL_GRAFANA_PORT=13000 ./k8s/scripts/port-forward-demo-hub.sh`. For OpenSearch use `LOCAL_OPENSEARCH_PORT` / `LOCAL_OS_DASHBOARDS_PORT` (defaults **9200** / **5601**).
+
+If **`kubectl port-forward`** prints **Connection refused** on **:9090** (often with **socat** in the message), the **Prometheus container is not listening** — usually **CrashLoopBackOff** or not **Ready**. Fix the pod (`kubectl logs deploy/prometheus -n demo-hub`), or temporarily skip that forward so other ports still work: **`SKIP_PROMETHEUS=1 ./k8s/scripts/port-forward-demo-hub.sh`**.
+
+**Lifecycle — one script (`start` / `stop` / `restart` / `status`):**
+
+From `dashboards/demo`, use **[`k8s/scripts/demo-hub.sh`](scripts/demo-hub.sh)** as the single entry point. **Order matters:** `stop` deletes the **`demo-hub`** namespace (full teardown); `start` applies **`generated/all.yaml` once** then runs **`apply-data-bootstrap.sh`** (waits for Postgres/Cassandra, then Jobs). **`restart`** is `stop` then `start` (same as the old **`stop-start-all-k8s.sh`**).
+
+```bash
+chmod +x k8s/scripts/demo-hub.sh
+
+./k8s/scripts/demo-hub.sh status    # what is running
+./k8s/scripts/demo-hub.sh stop      # tear down everything in the namespace
+./k8s/scripts/demo-hub.sh start     # apply manifests + bootstrap (idempotent apply)
+
+# Clean slate (regenerate YAML optional, then full cycle):
+REGEN=1 ./k8s/scripts/demo-hub.sh restart
+
+# Workloads only (skip Postgres/Cassandra/Mongo Jobs — e.g. data already initialized):
+SKIP_BOOTSTRAP=1 ./k8s/scripts/demo-hub.sh start
+```
+
+Legacy alias: **`./k8s/scripts/stop-start-all-k8s.sh`** → **`demo-hub.sh restart`** (honours **`REGEN`**, **`SKIP_BOOTSTRAP`**).
+
+**Docker Compose** (not Kubernetes): from `dashboards/demo` run `docker compose down` then `./start-full-stack.sh` or `docker compose up -d`.
+
+**Cassandra:** If you previously applied **legacy** `pods/pod-cassandra*.yaml`, delete those Pods so they do not share the `cassandra` Service with the **StatefulSet** (`kubectl delete pod cassandra cassandra2 cassandra3 -n demo-hub --ignore-not-found`). Generated Services select `demo-hub.io/cassandra-workload: statefulset` so only the ring pods receive traffic.
+
+**Replication & sharding (same steps as Compose):** Deployments/StatefulSets only **start processes**. To run the same init as Docker Compose (Postgres logical + physical slots, Cassandra `demo_hub` RF=3, Mongo config/shard RS + `addShard` + sharded collections), apply Jobs **after** pods are ready:
+
+```bash
+chmod +x scripts/apply-data-bootstrap.sh
+./scripts/apply-data-bootstrap.sh
+```
+
+Or apply `generated/45-postgres-bootstrap-job.yaml`, `35-cassandra-schema-job.yaml`, and `61-mongo-bootstrap-job.yaml` manually and `kubectl wait` for each Job to complete. To re-run a Job after failure, `kubectl delete job -n demo-hub <job-name>` then apply again (Postgres SQL is mostly idempotent; `CREATE USER` / `CREATE PUBLICATION` may need a fresh DB or hand-edited SQL on repeat).
+
+**Images — custom builds (not on Docker Hub):** Several workloads use **`mcac-demo/*`** and **`demo-hub/nodetool-exporter`** — the cluster cannot pull them until you **build locally** (same sources as Docker Compose). Use the **one-shot** script from `dashboards/demo`:
+
+```bash
+chmod +x k8s/scripts/build-all-custom-images.sh
+./k8s/scripts/build-all-custom-images.sh
+```
+
+That builds: **`mcac-demo/mcac-init:local`** (Cassandra MCAC initContainer, **`imagePullPolicy: Never`**), **`mcac-demo/hub-demo-ui:latest`**, **`mcac-demo/kafka-connect:2.7.3-mongo-sink`**, **`demo-hub/nodetool-exporter:latest`**. Then restart failing Deployments / StatefulSet, e.g. `kubectl rollout restart deployment/kafka-connect deployment/hub-demo-ui deployment/nodetool-exporter statefulset/cassandra -n demo-hub`. **kind / minikube:** load each image after build (`kind load docker-image …` — see script footer). **OrbStack / Docker Desktop:** the Kubernetes node usually shares the local Docker image store after `docker build`.
+
+**Prometheus** uses the public image **`prom/prometheus:v2.17.1`** — **CrashLoopBackOff** is not an image pull issue; see [Troubleshooting](#troubleshooting) (`kubectl logs deploy/prometheus -n demo-hub`).
+
+**PostgreSQL (Bitnami):** Generated manifests use a **pinned** image on **`docker.io/bitnamilegacy/postgresql`** (see `POSTGRESQL_IMAGE` in `gen_demo_hub_k8s.py`). Unpinned tags like `docker.io/bitnami/postgresql:16` may return **manifest unknown** on Docker Hub; if you see **ImagePullBackOff** on `postgresql-*`, regenerate and re-apply, or bump the pin to a current tag from [bitnamilegacy/postgresql tags](https://hub.docker.com/r/bitnamilegacy/postgresql/tags).
+
+**Nodetool-exporter:** Compose now tags the build as **`demo-hub/nodetool-exporter:latest`** (see `nodetool-exporter` in [`../docker-compose.yml`](../docker-compose.yml)). After `kubectl apply`, if the pod is **ImagePullBackOff**, build and load:
+
+```bash
+chmod +x k8s/scripts/build-load-nodetool-exporter.sh
+./k8s/scripts/build-load-nodetool-exporter.sh
+kubectl rollout restart deploy/nodetool-exporter -n demo-hub
+```
+
+Or: `docker compose build nodetool-exporter` from `dashboards/demo`, then `kind load docker-image demo-hub/nodetool-exporter:latest`.
+
+**Mongo / Postgres parity:** Compose runs **init scripts** (replica sets, shards, Debezium SQL). The generated manifests **start the processes only** — add **Jobs** with repo scripts (see `README-jobs.md` and [`../mongo-sharded/`](../mongo-sharded/), [`../postgres-kafka/`](../postgres-kafka/)).
+
+**Storage:** Data directories use **`emptyDir`** for portability. For persistence, replace with **PersistentVolumeClaim** templates.
+
+---
+
+## Legacy Pod skeletons (`pods/`, `services/`)
+
+**`scripts/gen_demo_hub_pods.py`** emits one **Pod** + **Service** per Compose service — useful as a port/image checklist, not a complete port of Compose.
+
+```bash
+python3 scripts/gen_demo_hub_pods.py
+```
+
+**`scripts/gen_demo_hub_deployments.py`** delegates to **`gen_demo_hub_k8s.py`**.
+
+---
+
+## Troubleshooting
+
+| Symptom | Typical cause |
+|--------|----------------|
+| **`demo-hub.sh` / `apply-data-bootstrap.sh` stuck** on “Waiting for PostgreSQL primary…” | `kubectl rollout status` waits until the **primary pod is Ready**. If the pod is **Pending** (disk-pressure, insufficient CPU/RAM) or **CrashLoop** / **ImagePullBackOff**, this blocks until timeout (~7 min). Run: `kubectl get pods -n demo-hub -l app.kubernetes.io/name=postgresql-primary`; `kubectl describe pod -n demo-hub -l app.kubernetes.io/name=postgresql-primary` and read **Events**. Fix node disk/resources or image issues first. |
+| **PostgreSQL `ErrImagePull` / `manifest unknown`** for `bitnami/postgresql:16` | Docker Hub may not publish that tag anymore. Regenerate manifests (`python3 k8s/scripts/gen_demo_hub_k8s.py`) so images use **`bitnamilegacy/postgresql`** with a pinned tag, then `kubectl apply -f k8s/generated/all.yaml` and restart the deployments. |
+| **ErrImagePull** / **ImagePullBackOff** (nodetool-exporter) | Not on a public registry — build and load: **`./k8s/scripts/build-load-nodetool-exporter.sh`** (or `docker compose build nodetool-exporter` then `kind load docker-image demo-hub/nodetool-exporter:latest`). |
+| **Kafka / kafka-exporter CrashLoop** | Stack uses **Bitnami Legacy** Kafka + ZooKeeper (`docker.io/bitnamilegacy/kafka`, `bitnamilegacy/zookeeper`) — same **`kafka:9092`** bootstrap as before. Re-apply `generated/20-zookeeper-kafka.yaml`, then **`kubectl delete pod -n demo-hub -l app.kubernetes.io/name=kafka`** (stuck rollouts can leave two Kafka ReplicaSets). Ensure nodes can **pull** `docker.io/bitnamilegacy/*`. |
+| **hub-demo-ui ErrImagePull** / **ImagePullBackOff** | Image **`mcac-demo/hub-demo-ui:latest`** is local-only — run **`./k8s/scripts/build-all-custom-images.sh`** (or build that Dockerfile under `realtime-orders-search-hub/demo-ui`), then `kubectl rollout restart deploy/hub-demo-ui -n demo-hub`. |
+| **hub-demo-ui CrashLoop** (after image pulls OK) | Waits for **Kafka + OpenSearch** in an initContainer; if Kafka was down, redeploy after Kafka is healthy. Check logs: `kubectl logs deploy/hub-demo-ui -n demo-hub`. |
+| **kafka-connect ImagePullBackOff** | Image **`mcac-demo/kafka-connect:2.7.3-mongo-sink`** is built from `mongo-kafka/Dockerfile.connect` — use **`build-all-custom-images.sh`**, then restart `deploy/kafka-connect`. |
+| **Prometheus CrashLoopBackOff** | Check logs: `kubectl logs deploy/prometheus -n demo-hub --tail=80`. If you see **`scrape timeout greater than scrape interval`** for job **`mcac`**, regenerate (`python3 k8s/scripts/gen_demo_hub_k8s.py`) and re-apply **`10-observability-prometheus-grafana.yaml`** — the generator keeps **`scrape_timeout` ≤ `scrape_interval`** for that job. Other causes: YAML errors, OOM. |
+| **stress RunContainerError** | **tlp-stress** must use the image **ENTRYPOINT** — generator uses `args` only (not `command`). Re-apply `98-nodetool-stress.yaml`. |
+| **OOMKilled** | Raise limits or node RAM (see kafka-connect `limits.memory`). |
+| **Mongo / PG not usable** | Init Jobs not run — replica sets and SQL not applied. |
+| **OpenSearch** | ConfigMap supplies single-node `opensearch.yml`; tune for your cluster. |
+| **Prometheus `mcac` targets** show **Compose** names (`cassandra`, `cassandra2`, …) **DOWN** | **Stale** `prometheus-tg-mcac` ConfigMap. Regenerate, apply observability YAML, **restart Prometheus**: `python3 k8s/scripts/gen_demo_hub_k8s.py` → `kubectl apply -f k8s/generated/10-observability-prometheus-grafana.yaml` → `kubectl rollout restart deployment/prometheus -n demo-hub`. Verify: `kubectl get configmap prometheus-tg-mcac -n demo-hub -o jsonpath='{.data.tg_mcac\.json}'` — must list `cassandra-0.cassandra-headless.demo-hub.svc.cluster.local:9103` (three StatefulSet pods). |
+| **Prometheus `mcac` targets** show **correct** FQDNs but **timeout** / **connection refused** on :9103 | Cassandra pods need the **MCAC javaagent** (initContainer + `/mcac` mounts). Use **current** `30-cassandra-ring.yaml` (includes `mcac-copy-agent` init + `mcac-agent-config` ConfigMap), build **`mcac-demo/mcac-init:local`** (`./k8s/scripts/build-mcac-init-image.sh`), then `kubectl rollout restart statefulset/cassandra -n demo-hub`. Check: `kubectl exec -n demo-hub cassandra-0 -- curl -sS --max-time 2 http://127.0.0.1:9103/metrics \| head` should return Prometheus text. |
+| **Cassandra `ErrImagePull` / “access denied” for `mcac-demo/mcac-init`** | That name is **not** on Docker Hub. Build the image locally (**`build-mcac-init-image.sh`**), ensure the tag is **`mcac-demo/mcac-init:local`**, and use the generated manifest (**`imagePullPolicy: Never`** on the initContainer). kind/minikube: load the image into the cluster. |
+
+```bash
+kubectl -n demo-hub get deploy,sts,svc
+kubectl -n demo-hub describe pod -l app.kubernetes.io/part-of=demo-hub
+```

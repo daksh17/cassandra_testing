@@ -1,0 +1,16 @@
+# Generated — ClusterIP (mongo-shard-tic)
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-shard-tic
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongo-shard-tic
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: mongo-shard-tic
+  ports:
+    - port: 27017
+      targetPort: 27017
+      name: p-27017

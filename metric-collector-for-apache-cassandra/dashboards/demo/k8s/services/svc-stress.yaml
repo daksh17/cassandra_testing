@@ -1,0 +1,16 @@
+# Generated — ClusterIP (stress)
+apiVersion: v1
+kind: Service
+metadata:
+  name: stress
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: stress
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: stress
+  ports:
+    - port: 9500
+      targetPort: 9500
+      name: p-9500

@@ -1,0 +1,19 @@
+# Generated — ClusterIP (kafka)
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: kafka
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: kafka
+  ports:
+    - port: 9092
+      targetPort: 9092
+      name: p-9092
+    - port: 29092
+      targetPort: 29092
+      name: p-29092

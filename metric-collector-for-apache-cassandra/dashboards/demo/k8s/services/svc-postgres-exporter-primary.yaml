@@ -1,0 +1,16 @@
+# Generated — ClusterIP (postgres-exporter-primary)
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-exporter-primary
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: postgres-exporter-primary
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: postgres-exporter-primary
+  ports:
+    - port: 9187
+      targetPort: 9187
+      name: p-9187

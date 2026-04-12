@@ -1,0 +1,16 @@
+# Generated — ClusterIP (kafka-exporter-mcac)
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-exporter-mcac
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: kafka-exporter-mcac
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: kafka-exporter-mcac
+  ports:
+    - port: 9308
+      targetPort: 9308
+      name: p-9308

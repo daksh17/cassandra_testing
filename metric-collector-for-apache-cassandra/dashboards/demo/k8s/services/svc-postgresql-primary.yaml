@@ -1,0 +1,16 @@
+# Generated — ClusterIP (postgresql-primary)
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgresql-primary
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: postgresql-primary
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: postgresql-primary
+  ports:
+    - port: 5432
+      targetPort: 5432
+      name: p-5432

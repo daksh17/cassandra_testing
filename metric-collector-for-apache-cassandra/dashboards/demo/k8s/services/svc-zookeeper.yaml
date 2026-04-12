@@ -1,0 +1,16 @@
+# Generated — ClusterIP (zookeeper)
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: zookeeper
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: zookeeper
+  ports:
+    - port: 2181
+      targetPort: 2181
+      name: p-2181

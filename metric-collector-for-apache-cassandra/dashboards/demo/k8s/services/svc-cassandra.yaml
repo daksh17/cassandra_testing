@@ -1,0 +1,25 @@
+# Generated — ClusterIP (cassandra)
+apiVersion: v1
+kind: Service
+metadata:
+  name: cassandra
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: cassandra
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: cassandra
+  ports:
+    - port: 9042
+      targetPort: 9042
+      name: p-9042
+    - port: 7000
+      targetPort: 7000
+      name: p-7000
+    - port: 9103
+      targetPort: 9103
+      name: p-9103
+    - port: 9501
+      targetPort: 9501
+      name: p-9501

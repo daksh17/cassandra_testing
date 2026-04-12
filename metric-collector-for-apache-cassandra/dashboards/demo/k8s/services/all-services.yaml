@@ -1,0 +1,644 @@
+# Generated — ClusterIP (prometheus)
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: prometheus
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: prometheus
+  ports:
+    - port: 9090
+      targetPort: 9090
+      name: p-9090
+---
+
+# Generated — ClusterIP (grafana)
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: grafana
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: grafana
+  ports:
+    - port: 3000
+      targetPort: 3000
+      name: p-3000
+---
+
+# Generated — ClusterIP (nodetool-exporter)
+apiVersion: v1
+kind: Service
+metadata:
+  name: nodetool-exporter
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: nodetool-exporter
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: nodetool-exporter
+  ports:
+    - port: 9104
+      targetPort: 9104
+      name: p-9104
+---
+
+# Generated — ClusterIP (mongodb-exporter-local)
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb-exporter-local
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongodb-exporter-local
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: mongodb-exporter-local
+  ports:
+    - port: 9216
+      targetPort: 9216
+      name: p-9216
+---
+
+# Generated — ClusterIP (cassandra)
+apiVersion: v1
+kind: Service
+metadata:
+  name: cassandra
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: cassandra
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: cassandra
+  ports:
+    - port: 9042
+      targetPort: 9042
+      name: p-9042
+    - port: 7000
+      targetPort: 7000
+      name: p-7000
+    - port: 9103
+      targetPort: 9103
+      name: p-9103
+    - port: 9501
+      targetPort: 9501
+      name: p-9501
+---
+
+# Generated — ClusterIP (cassandra2)
+apiVersion: v1
+kind: Service
+metadata:
+  name: cassandra2
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: cassandra2
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: cassandra2
+  ports:
+    - port: 9042
+      targetPort: 9042
+      name: p-9042
+    - port: 7000
+      targetPort: 7000
+      name: p-7000
+    - port: 9103
+      targetPort: 9103
+      name: p-9103
+    - port: 9501
+      targetPort: 9501
+      name: p-9501
+---
+
+# Generated — ClusterIP (cassandra3)
+apiVersion: v1
+kind: Service
+metadata:
+  name: cassandra3
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: cassandra3
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: cassandra3
+  ports:
+    - port: 9042
+      targetPort: 9042
+      name: p-9042
+    - port: 7000
+      targetPort: 7000
+      name: p-7000
+    - port: 9103
+      targetPort: 9103
+      name: p-9103
+    - port: 9501
+      targetPort: 9501
+      name: p-9501
+---
+
+# Generated — ClusterIP (stress)
+apiVersion: v1
+kind: Service
+metadata:
+  name: stress
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: stress
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: stress
+  ports:
+    - port: 9500
+      targetPort: 9500
+      name: p-9500
+---
+
+# Generated — ClusterIP (zookeeper)
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: zookeeper
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: zookeeper
+  ports:
+    - port: 2181
+      targetPort: 2181
+      name: p-2181
+---
+
+# Generated — ClusterIP (kafka)
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: kafka
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: kafka
+  ports:
+    - port: 9092
+      targetPort: 9092
+      name: p-9092
+    - port: 29092
+      targetPort: 29092
+      name: p-29092
+---
+
+# Generated — ClusterIP (postgresql-primary)
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgresql-primary
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: postgresql-primary
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: postgresql-primary
+  ports:
+    - port: 5432
+      targetPort: 5432
+      name: p-5432
+---
+
+# Generated — ClusterIP (postgresql-replica-1)
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgresql-replica-1
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: postgresql-replica-1
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: postgresql-replica-1
+  ports:
+    - port: 5432
+      targetPort: 5432
+      name: p-5432
+---
+
+# Generated — ClusterIP (postgresql-replica-2)
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgresql-replica-2
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: postgresql-replica-2
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: postgresql-replica-2
+  ports:
+    - port: 5432
+      targetPort: 5432
+      name: p-5432
+---
+
+# Generated — ClusterIP (kafka-connect)
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-connect
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: kafka-connect
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: kafka-connect
+  ports:
+    - port: 8083
+      targetPort: 8083
+      name: p-8083
+---
+
+# Generated — ClusterIP (postgres-exporter-primary)
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-exporter-primary
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: postgres-exporter-primary
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: postgres-exporter-primary
+  ports:
+    - port: 9187
+      targetPort: 9187
+      name: p-9187
+---
+
+# Generated — ClusterIP (postgres-exporter-replica-1)
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-exporter-replica-1
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: postgres-exporter-replica-1
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: postgres-exporter-replica-1
+  ports:
+    - port: 9187
+      targetPort: 9187
+      name: p-9187
+---
+
+# Generated — ClusterIP (postgres-exporter-replica-2)
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-exporter-replica-2
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: postgres-exporter-replica-2
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: postgres-exporter-replica-2
+  ports:
+    - port: 9187
+      targetPort: 9187
+      name: p-9187
+---
+
+# Generated — ClusterIP (kafka-exporter-mcac)
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-exporter-mcac
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: kafka-exporter-mcac
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: kafka-exporter-mcac
+  ports:
+    - port: 9308
+      targetPort: 9308
+      name: p-9308
+---
+
+# Generated — ClusterIP (mongo-config1)
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-config1
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongo-config1
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: mongo-config1
+  ports:
+    - port: 27017
+      targetPort: 27017
+      name: p-27017
+---
+
+# Generated — ClusterIP (mongo-config2)
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-config2
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongo-config2
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: mongo-config2
+  ports:
+    - port: 27017
+      targetPort: 27017
+      name: p-27017
+---
+
+# Generated — ClusterIP (mongo-config3)
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-config3
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongo-config3
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: mongo-config3
+  ports:
+    - port: 27017
+      targetPort: 27017
+      name: p-27017
+---
+
+# Generated — ClusterIP (mongo-shard-tic)
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-shard-tic
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongo-shard-tic
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: mongo-shard-tic
+  ports:
+    - port: 27017
+      targetPort: 27017
+      name: p-27017
+---
+
+# Generated — ClusterIP (mongo-shard-tac)
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-shard-tac
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongo-shard-tac
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: mongo-shard-tac
+  ports:
+    - port: 27017
+      targetPort: 27017
+      name: p-27017
+---
+
+# Generated — ClusterIP (mongo-shard-toe)
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-shard-toe
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongo-shard-toe
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: mongo-shard-toe
+  ports:
+    - port: 27017
+      targetPort: 27017
+      name: p-27017
+---
+
+# Generated — ClusterIP (mongo-mongos1)
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-mongos1
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongo-mongos1
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: mongo-mongos1
+  ports:
+    - port: 27017
+      targetPort: 27017
+      name: p-27017
+---
+
+# Generated — ClusterIP (mongo-mongos2)
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-mongos2
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongo-mongos2
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: mongo-mongos2
+  ports:
+    - port: 27017
+      targetPort: 27017
+      name: p-27017
+---
+
+# Generated — ClusterIP (mongo-mongos3)
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-mongos3
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongo-mongos3
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: mongo-mongos3
+  ports:
+    - port: 27017
+      targetPort: 27017
+      name: p-27017
+---
+
+# Generated — ClusterIP (mongodb-exporter)
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb-exporter
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongodb-exporter
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: mongodb-exporter
+  ports:
+    - port: 9216
+      targetPort: 9216
+      name: p-9216
+---
+
+# Generated — ClusterIP (redis)
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: redis
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+      name: p-6379
+---
+
+# Generated — ClusterIP (redis-exporter)
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-exporter
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: redis-exporter
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: redis-exporter
+  ports:
+    - port: 9121
+      targetPort: 9121
+      name: p-9121
+---
+
+# Generated — ClusterIP (opensearch)
+apiVersion: v1
+kind: Service
+metadata:
+  name: opensearch
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: opensearch
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: opensearch
+  ports:
+    - port: 9200
+      targetPort: 9200
+      name: p-9200
+    - port: 9600
+      targetPort: 9600
+      name: p-9600
+---
+
+# Generated — ClusterIP (opensearch-dashboards)
+apiVersion: v1
+kind: Service
+metadata:
+  name: opensearch-dashboards
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: opensearch-dashboards
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: opensearch-dashboards
+  ports:
+    - port: 5601
+      targetPort: 5601
+      name: p-5601
+---
+
+# Generated — ClusterIP (opensearch-exporter)
+apiVersion: v1
+kind: Service
+metadata:
+  name: opensearch-exporter
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: opensearch-exporter
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: opensearch-exporter
+  ports:
+    - port: 7979
+      targetPort: 7979
+      name: p-7979
+---
+
+# Generated — ClusterIP (hub-demo-ui)
+apiVersion: v1
+kind: Service
+metadata:
+  name: hub-demo-ui
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: hub-demo-ui
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: hub-demo-ui
+  ports:
+    - port: 8888
+      targetPort: 8888
+      name: p-8888
+---

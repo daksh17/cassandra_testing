@@ -1,0 +1,380 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mongo-sharded-scripts
+  namespace: demo-hub
+  labels:
+    demo-hub.io/group: mongo-sharded
+    app.kubernetes.io/part-of: demo-hub
+data:
+  chain.sh: |
+    #!/usr/bin/env bash
+    set -euo pipefail
+    bash /scripts/init-config-replica-set.sh
+    bash /scripts/init-shard-replica-sets.sh
+    bash /scripts/add-shards.sh
+    export MONGOS_URI=mongodb://mongo-mongos1:27017
+    bash /scripts/prepare-demo-collections.sh
+    echo "mongo sharded bootstrap done."
+
+  init-config-replica-set.sh: |
+    #!/usr/bin/env bash
+    # Init config server replica set only. Must finish BEFORE shard mongods start (shardsvr nodes
+    # with existing data contact configReplSet during startup; uninitialized config = deadlock).
+    set -euo pipefail
+    
+    wait_mongo() {
+      local host=$1
+      local n=0
+      until mongosh "mongodb://${host}:27017" --eval 'db.runCommand({ ping: 1 })' --quiet >/dev/null 2>&1; do
+        n=$((n + 1))
+        if [ "$n" -gt 120 ]; then
+          echo "timeout waiting for ${host}"
+          exit 1
+        fi
+        sleep 2
+      done
+    }
+    
+    for h in mongo-config1 mongo-config2 mongo-config3; do
+      echo "waiting for ${h}..."
+      wait_mongo "$h"
+    done
+    
+    echo "init configReplSet (if needed)..."
+    mongosh "mongodb://mongo-config1:27017" --quiet --eval '
+    const ok = (() => {
+      try {
+        const s = rs.status();
+        return s.ok === 1;
+      } catch (e) {
+        return false;
+      }
+    })();
+    if (!ok) {
+      rs.initiate({
+        _id: "configReplSet",
+        configsvr: true,
+        members: [
+          { _id: 0, host: "mongo-config1:27017" },
+          { _id: 1, host: "mongo-config2:27017" },
+          { _id: 2, host: "mongo-config3:27017" }
+        ]
+      });
+    }
+    '
+    
+    echo "waiting for config PRIMARY (any member)..."
+    # mongo-config1 may become a secondary after election; require a PRIMARY in the set, not this host only.
+    n=0
+    until mongosh "mongodb://mongo-config1:27017" --quiet --eval \
+      '(() => { try { const s = rs.status(); return s.ok === 1 && s.members.some(m => m.stateStr === "PRIMARY"); } catch (e) { return false; } })()' | grep -q '^true$'; do
+      n=$((n + 1))
+      if [ "$n" -gt 90 ]; then
+        echo "timeout waiting for config PRIMARY (90 attempts). rs.status / hello:" >&2
+        mongosh "mongodb://mongo-config1:27017" --quiet --eval \
+          'try { printjson(rs.status()); } catch (e) { print("rs.status:", e.message); } try { printjson(db.hello()); } catch (e2) { print("hello:", e2.message); }' >&2 || true
+        exit 1
+      fi
+      sleep 2
+    done
+    
+    echo "config replica set ready."
+
+  init-shard-replica-sets.sh: |
+    #!/usr/bin/env bash
+    # Init shard replica sets tic / tac / toe (single node each). Runs after shard containers are up.
+    set -euo pipefail
+    
+    wait_mongo() {
+      local host=$1
+      local n=0
+      until mongosh "mongodb://${host}:27017" --eval 'db.runCommand({ ping: 1 })' --quiet >/dev/null 2>&1; do
+        n=$((n + 1))
+        if [ "$n" -gt 120 ]; then
+          echo "timeout waiting for ${host}"
+          exit 1
+        fi
+        sleep 2
+      done
+    }
+    
+    for h in mongo-shard-tic mongo-shard-tac mongo-shard-toe; do
+      echo "waiting for ${h}..."
+      wait_mongo "$h"
+    done
+    
+    for spec in "tic:mongo-shard-tic" "tac:mongo-shard-tac" "toe:mongo-shard-toe"; do
+      IFS=: read -r rsname host <<<"$spec"
+      echo "init replica set ${rsname} on ${host}..."
+      mongosh "mongodb://${host}:27017" --quiet --eval '
+    const rsName = "'"${rsname}"'";
+    const h = "'"${host}:27017"'";
+    const ok = (() => {
+      try {
+        return rs.status().ok === 1;
+      } catch (e) {
+        return false;
+      }
+    })();
+    if (!ok) {
+      rs.initiate({ _id: rsName, members: [{ _id: 0, host: h }] });
+    }
+    '
+      echo "waiting for PRIMARY on ${rsname}..."
+      uri="mongodb://${host}:27017"
+      n=0
+      until mongosh "$uri" --quiet --eval \
+        'const h = db.hello(); h.isWritablePrimary === true || h.ismaster === true' | grep -q '^true$'; do
+        n=$((n + 1))
+        if [ "$n" -gt 90 ]; then
+          echo "timeout waiting for PRIMARY on ${rsname}. hello / rs.status:" >&2
+          mongosh "$uri" --quiet --eval 'try { printjson(rs.status()); } catch (e) { print(e.message); } printjson(db.hello());' >&2 || true
+          exit 1
+        fi
+        sleep 2
+      done
+    done
+    
+    echo "shard replica sets ready."
+
+  add-shards.sh: |
+    #!/usr/bin/env bash
+    # Register shard replica sets tic / tac / toe on the cluster (via mongos). Idempotent.
+    set -euo pipefail
+    
+    wait_mongos() {
+      local n=0
+      until mongosh "mongodb://mongo-mongos1:27017" --eval 'db.runCommand({ ping: 1 })' --quiet >/dev/null 2>&1; do
+        n=$((n + 1))
+        if [ "$n" -gt 90 ]; then
+          echo "timeout waiting for mongo-mongos1"
+          exit 1
+        fi
+        sleep 2
+      done
+    }
+    
+    echo "waiting for mongos..."
+    wait_mongos
+    
+    mongosh "mongodb://mongo-mongos1:27017" --quiet --eval '
+    const admin = db.getSiblingDB("admin");
+    function hasShard(id) {
+      const r = admin.runCommand({ listShards: 1 });
+      if (!r.shards) return false;
+      return r.shards.some(s => s._id === id);
+    }
+    function dropLocalDemoOnShard(conn) {
+      try {
+        const uri = "mongodb://" + conn;
+        const m = new Mongo(uri);
+        const ldb = m.getDB("demo");
+        const list = m.getDB("admin").runCommand({ listDatabases: 1 });
+        if (!list.databases || !list.databases.some(d => d.name === "demo")) return;
+        print("dropping stray local database demo on " + conn + " (required before addShard when demo already exists on another shard)");
+        ldb.dropDatabase();
+      } catch (e) {
+        print("pre-clean on " + conn + ": " + e.message);
+      }
+    }
+    const shards = [
+      { id: "tic", conn: "mongo-shard-tic:27017" },
+      { id: "tac", conn: "mongo-shard-tac:27017" },
+      { id: "toe", conn: "mongo-shard-toe:27017" }
+    ];
+    for (const s of shards) {
+      if (!hasShard(s.id)) {
+        dropLocalDemoOnShard(s.conn);
+        print("adding shard " + s.id);
+        const r = admin.runCommand({ addShard: s.id + "/" + s.conn });
+        printjson(r);
+        if (r.ok !== 1) {
+          throw new Error("addShard failed for " + s.id + ": " + JSON.stringify(r));
+        }
+      } else {
+        print("shard " + s.id + " already present");
+      }
+    }
+    print("done");
+    '
+
+  prepare-demo-collections.sh: |
+    #!/usr/bin/env bash
+    # Enable sharding on DB "demo", shard source + sink collections, insert seed docs (via mongos).
+    set -euo pipefail
+    
+    MONGOS_URI="${MONGOS_URI:-mongodb://mongo-mongos1:27017}"
+    
+    wait_mongos() {
+      local n=0
+      until mongosh "${MONGOS_URI}" --eval 'db.runCommand({ ping: 1 })' --quiet >/dev/null 2>&1; do
+        n=$((n + 1))
+        if [ "$n" -gt 90 ]; then
+          echo "timeout waiting for mongos" >&2
+          exit 1
+        fi
+        sleep 2
+      done
+    }
+    
+    echo "waiting for mongos..."
+    wait_mongos
+    
+    mongosh "${MONGOS_URI}" --quiet <<'EOS'
+    // Idempotent-ish: enable sharding on demo DB
+    try {
+      sh.enableSharding("demo");
+    } catch (e) {
+      print("enableSharding: " + e);
+    }
+    
+    const d = db.getSiblingDB("demo");
+    if (!d.getCollectionNames().includes("demo_items")) {
+      d.createCollection("demo_items");
+    }
+    if (!d.getCollectionNames().includes("demo_items_from_kafka")) {
+      d.createCollection("demo_items_from_kafka");
+    }
+    
+    try {
+      sh.shardCollection("demo.demo_items", { _id: "hashed" });
+    } catch (e) {
+      if (!String(e.message).includes("already sharded")) { throw e; }
+    }
+    try {
+      sh.shardCollection("demo.demo_items_from_kafka", { _id: "hashed" });
+    } catch (e) {
+      if (!String(e.message).includes("already sharded")) { throw e; }
+    }
+    
+    const n = d.demo_items.countDocuments({});
+    if (n === 0) {
+      d.demo_items.insertMany([
+        { name: "mongo-seed-a", qty: 1 },
+        { name: "mongo-seed-b", qty: 2 }
+      ]);
+      print("inserted seed documents");
+    } else {
+      print("demo_items already has " + n + " documents, skipping seeds");
+    }
+    print("demo collections ready for Debezium + Mongo sink");
+    EOS
+    
+    # In Docker Compose the file is mounted at /demo-indexes.js; locally use repo dir.
+    IDX=""
+    if [[ -f /demo-indexes.js ]]; then
+      IDX=/demo-indexes.js
+    else
+      _dir="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+      [[ -f "${_dir}/demo-indexes.js" ]] && IDX="${_dir}/demo-indexes.js"
+    fi
+    if [[ -n "${IDX}" ]]; then
+      echo "applying Mongo demo indexes (ESR-oriented compounds, partial, text)..."
+      mongosh "${MONGOS_URI}" --quiet "${IDX}"
+    else
+      echo "warn: demo-indexes.js not found (mount as /demo-indexes.js in compose)" >&2
+    fi
+
+  demo-indexes.js: |
+    /**
+     * Demo indexes for MongoDB (mongosh). ESR hint: Equality fields first, then Sort, then Range
+     * in compound indexes. Run via prepare-demo-collections.sh after collections exist.
+     *
+     * Collections:
+     * - demo.demo_items / demo_items_from_kafka — Debezium hub (sharded on {_id: "hashed"})
+     * - demo.scenario_products — hub scenario catalog (not sharded; unique sku safe)
+     */
+    const d = db.getSiblingDB("demo");
+    
+    function ix(coll, keys, opts = {}) {
+      const c = d.getCollection(coll);
+      const name = opts.name || Object.entries(keys).map(([k, v]) => `${k}_${v}`).join("_");
+      const res = c.createIndex(keys, { ...opts, name });
+      print(`createIndex ${coll}: ${name} -> ${JSON.stringify(res)}`);
+    }
+    
+    // --- scenario_products (hub Multi-DB scenario) — not sharded ---
+    ["scenario_products"].forEach((coll) => {
+      if (!d.getCollectionNames().includes(coll)) {
+        d.createCollection(coll);
+        print("created empty collection: " + coll);
+      }
+    });
+    
+    // E: sku equality / lookup; unique
+    ix("scenario_products", { sku: 1 }, { name: "esr_sku_unique", unique: true });
+    // Sort feed: op_pipeline uses .sort({ updated_at: -1 })
+    ix("scenario_products", { updated_at: -1, sku: 1 }, { name: "esr_updated_sku" });
+    // ESR-style compound: equality category, range on price, sort tie-breaker sku
+    ix(
+      "scenario_products",
+      { category: 1, unit_price_cents: 1, sku: 1 },
+      { name: "esr_category_price_sku" }
+    );
+    // Partial: in-stock catalog slices (Equality stock filter + sort)
+    ix(
+      "scenario_products",
+      { category: 1, sku: 1 },
+      { name: "partial_in_stock", partialFilterExpression: { stock_units: { $gt: 0 } } }
+    );
+    // Warehouse + sku for operational filters
+    ix("scenario_products", { warehouse: 1, sku: 1 }, { name: "esr_warehouse_sku" });
+    // Text search on title (Atlas-free text index; good for demo queries)
+    try {
+      d.scenario_products.createIndex({ title: "text", description: "text" }, { name: "text_title_desc", weights: { title: 10, description: 1 } });
+      print("createIndex scenario_products: text_title_desc -> ok");
+    } catch (e) {
+      print("text index skip: " + e);
+    }
+    
+    // --- demo_items (Debezium source; hashed shard key _id) ---
+    if (d.getCollectionNames().includes("demo_items")) {
+      // Name is common in filters / hub workload; compound with _id helps covered plans on sharded col
+      ix("demo_items", { name: 1, _id: 1 }, { name: "esr_name_id" });
+      ix("demo_items", { name: 1, qty: 1 }, { name: "esr_name_qty" });
+    }
+    
+    // --- demo_items_from_kafka (sink collection) ---
+    if (d.getCollectionNames().includes("demo_items_from_kafka")) {
+      ix("demo_items_from_kafka", { name: 1, _id: 1 }, { name: "sink_name_id" });
+    }
+    
+    print("demo Mongo indexes applied.");
+---
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mongo-demo-bootstrap
+  namespace: demo-hub
+  labels:
+    demo-hub.io/group: mongo-sharded
+    app.kubernetes.io/part-of: demo-hub
+spec:
+  activeDeadlineSeconds: 7200
+  ttlSecondsAfterFinished: 86400
+  backoffLimit: 4
+  template:
+    metadata:
+      labels:
+        demo-hub.io/group: mongo-sharded
+        app.kubernetes.io/part-of: demo-hub
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: run
+          image: mongo:7.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - "bash"
+            - "/scripts/chain.sh"
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+      volumes:
+        - name: scripts
+          configMap:
+            name: mongo-sharded-scripts
+            defaultMode: 0755

@@ -46,6 +46,13 @@ CASSANDRA_HOSTS = os.environ.get("CASSANDRA_HOSTS", "cassandra").split(",")
 CASSANDRA_WORKLOAD_REQUEST_TIMEOUT = float(
     os.environ.get("CASSANDRA_WORKLOAD_REQUEST_TIMEOUT_SECONDS", "120")
 )
+# Pause between Cassandra batch executes (sustain + large payloads can overload a 500M demo node).
+CASSANDRA_WORKLOAD_INTER_BATCH_SLEEP_MS = float(
+    os.environ.get("CASSANDRA_WORKLOAD_INTER_BATCH_SLEEP_MS", "0")
+)
+CASSANDRA_WORKLOAD_WRITE_RETRIES = int(
+    os.environ.get("CASSANDRA_WORKLOAD_WRITE_RETRIES", "2")
+)
 OPENSEARCH_URL = os.environ.get("OPENSEARCH_URL", "http://opensearch:9200").rstrip("/")
 HUB_KEYSPACE = os.environ.get("CASSANDRA_KEYSPACE", "demo_hub")
 OS_INDEX = os.environ.get("OPENSEARCH_INDEX", "hub-orders")
@@ -307,7 +314,7 @@ WORKLOAD_PAGE = f"""<!DOCTYPE html>
   {NAV}
   <h1>Workload generator</h1>
   <p>Writes synthetic rows in <strong>batches</strong>. <strong>Payload block size (KB)</strong> repeats filler bytes per record (larger = heavier writes).
-    <strong>Postgres</strong> stores the pad inside <code>demo_items.name</code> with a <strong>CDC‑safe max length</strong> (default 16&nbsp;KiB; override <code>POSTGRES_WORKLOAD_NAME_MAX_CHARS</code>) so Debezium snapshot does not OOM Kafka Connect on huge pads. <strong>Cassandra</strong> puts the pad in <code>label</code> (truncated); each batch row count is <strong>capped automatically</strong> so size stays under Cassandra&apos;s limit (prevents <code>Batch too large</code>). Sustained runs with Cassandra enabled can hit driver timeouts on a busy node—increase <code>CASSANDRA_WORKLOAD_REQUEST_TIMEOUT_SECONDS</code> on the service if needed.
+    <strong>Postgres</strong> stores the pad inside <code>demo_items.name</code> with a <strong>CDC‑safe max length</strong> (default 16&nbsp;KiB; override <code>POSTGRES_WORKLOAD_NAME_MAX_CHARS</code>) so Debezium snapshot does not OOM Kafka Connect on huge pads.     <strong>Cassandra</strong> puts the pad in <code>label</code> (truncated); each batch row count is <strong>capped automatically</strong> so size stays under Cassandra&apos;s limit (prevents <code>Batch too large</code>). Sustained + large payloads can overload demo nodes (coordinator timeout / code 1100)—raise <code>CASSANDRA_WORKLOAD_REQUEST_TIMEOUT_SECONDS</code>, set <code>CASSANDRA_WORKLOAD_INTER_BATCH_SLEEP_MS</code> (e.g. 15–40), or lower payload / sustain duration.
     OpenSearch uses index <code>hub-workload</code>. REST: <code>http://localhost:9200</code>, Dashboards: <code>http://localhost:5601</code>. Grafana: separate dashboards per subsystem (Mongo, Redis, Kafka, Cassandra, …).</p>
   <form id="f">
     <label>Total records (1–100000)</label>
@@ -934,6 +941,8 @@ def _execute_workload_wave(
             sess = _cassandra_session
             cass_label_max = 60000
             n = 0
+            sleep_s = max(0.0, CASSANDRA_WORKLOAD_INTER_BATCH_SLEEP_MS / 1000.0)
+            retries = max(0, CASSANDRA_WORKLOAD_WRITE_RETRIES)
             for start in range(0, total_records, c_batches):
                 batch = BatchStatement(consistency_level=ConsistencyLevel.LOCAL_ONE)
                 for j in range(start, min(start + c_batches, total_records)):
@@ -943,7 +952,26 @@ def _execute_workload_wave(
                     lab = (f"wl-{run_id}-{i}|{pad}")[:cass_label_max]
                     batch.add(cassandra_prep, (oid, lab, now))
                     n += 1
-                sess.execute(batch, timeout=CASSANDRA_WORKLOAD_REQUEST_TIMEOUT)
+                attempt = 0
+                while True:
+                    try:
+                        sess.execute(batch, timeout=CASSANDRA_WORKLOAD_REQUEST_TIMEOUT)
+                        break
+                    except Exception as ex:
+                        msg = str(ex).lower()
+                        transient = (
+                            "1100" in msg
+                            or "timed out" in msg
+                            or "timeout" in msg
+                            or "no hosts available" in msg
+                        )
+                        if transient and attempt < retries:
+                            attempt += 1
+                            time.sleep(0.08 * (2 ** (attempt - 1)))
+                            continue
+                        raise
+                if sleep_s > 0.0:
+                    time.sleep(sleep_s)
             counts["cassandra"] = n
         except Exception as e:
             errors["cassandra"] = str(e)

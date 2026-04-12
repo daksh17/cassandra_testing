@@ -1,0 +1,16 @@
+# Generated — ClusterIP (mongo-mongos2)
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-mongos2
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongo-mongos2
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: mongo-mongos2
+  ports:
+    - port: 27017
+      targetPort: 27017
+      name: p-27017

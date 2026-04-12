@@ -1,0 +1,16 @@
+# Generated — ClusterIP (mongo-shard-toe)
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-shard-toe
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongo-shard-toe
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: mongo-shard-toe
+  ports:
+    - port: 27017
+      targetPort: 27017
+      name: p-27017

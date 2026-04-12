@@ -1,0 +1,113 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nodetool-exporter
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: nodetool-exporter
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: cassandra-ring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nodetool-exporter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nodetool-exporter
+        app.kubernetes.io/part-of: demo-hub
+        demo-hub.io/group: cassandra-ring
+    spec:
+      containers:
+        - name: nodetool-exporter
+          image: demo-hub/nodetool-exporter:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: CASSANDRA_HOSTS
+              value: "cassandra-0.cassandra-headless.demo-hub.svc.cluster.local,cassandra-1.cassandra-headless.demo-hub.svc.cluster.local,cassandra-2.cassandra-headless.demo-hub.svc.cluster.local"
+            - name: NODETOOL_EXPORTER_PORT
+              value: "9104"
+          ports:
+            - containerPort: 9104
+              name: metrics
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: nodetool-exporter
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: nodetool-exporter
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: cassandra-ring
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: nodetool-exporter
+  ports:
+    - port: 9104
+      targetPort: 9104
+      name: metrics
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stress
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: stress
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: cassandra-ring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: stress
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: stress
+        app.kubernetes.io/part-of: demo-hub
+        demo-hub.io/group: cassandra-ring
+    spec:
+      containers:
+        - name: stress
+          image: thelastpickle/tlp-stress:latest
+          imagePullPolicy: IfNotPresent
+          args:
+            - "run"
+            - "KeyValue"
+            - "--rate"
+            - "30"
+            - "-d"
+            - "1d"
+            - "-r"
+            - ".8"
+          env:
+            - name: TLP_STRESS_CASSANDRA_HOST
+              value: "cassandra"
+          ports:
+            - containerPort: 9500
+              name: http
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: stress
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: stress
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: cassandra-ring
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: stress
+  ports:
+    - port: 9500
+      targetPort: 9500
+      name: http

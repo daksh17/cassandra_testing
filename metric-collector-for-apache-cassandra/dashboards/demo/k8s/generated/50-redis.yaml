@@ -1,0 +1,113 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: redis
+        app.kubernetes.io/part-of: demo-hub
+        demo-hub.io/group: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7.4-alpine
+          imagePullPolicy: IfNotPresent
+          command:
+            - "redis-server"
+            - "--appendonly"
+            - "yes"
+            - "--requirepass"
+            - "demoredispass"
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          ports:
+            - containerPort: 6379
+              name: redis
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: redis
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+      name: redis
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-exporter
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: redis-exporter
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: redis-exporter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: redis-exporter
+        app.kubernetes.io/part-of: demo-hub
+        demo-hub.io/group: redis
+    spec:
+      containers:
+        - name: redis-exporter
+          image: oliver006/redis_exporter:v1.62.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: REDIS_ADDR
+              value: "redis:6379"
+            - name: REDIS_PASSWORD
+              value: "demoredispass"
+          ports:
+            - containerPort: 9121
+              name: metrics
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-exporter
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: redis-exporter
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: redis
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: redis-exporter
+  ports:
+    - port: 9121
+      targetPort: 9121
+      name: metrics

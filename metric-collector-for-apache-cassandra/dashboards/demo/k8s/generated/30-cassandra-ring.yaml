@@ -1,0 +1,363 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mcac-agent-config
+  namespace: demo-hub
+  labels:
+    demo-hub.io/group: cassandra-ring
+    app.kubernetes.io/part-of: demo-hub
+data:
+  metric-collector.yaml: |
+    ###
+    ### Metric Collector for Apache Cassandra Configuration
+    ###
+    
+    ### The frequency that metrics are reported to the Metrics Collector.
+    ### Default - 30s
+    metric_sampling_interval_in_seconds: 30
+    
+    #####################################################################
+    ### List of metrics to allow or deny
+    ###
+    ### pattern: regex pattern to search, can be a sub-match or full match
+    ### scope: 'global' will affect all data. 'datalog' will only affect the datalog
+    ### policy: 'allow' or 'deny'
+    ### The last applicable rule wins, which works similarly to iptables firewall rules:
+    ###   - A metric that would be denied by a rule and then allowed by another would be allowed.
+    ###   - A metric that would be allowed by a rule and then denied by another would be denied.
+    ### This allows to apply efficient filters on table level metrics for example and allow just a 
+    ### subset of those to match the dashboards requirements.
+    ### Filter rules are applied both on the name of the Cassandra metric and a cleaned/formatted
+    ### version of the metric name:
+    ###   - org.apache.cassandra.metrics.Table.LiveSSTableCount
+    ###   - org.apache.cassandra.metrics.table.live_ss_table_count
+    ### In the event the metric name and the cleaned metric name result in a differing policy,
+    ### the deny policy would be applied.
+    ### Default - allow all
+    
+    # Below sample rules allow to extract only a subset of table level metrics and lighten the load
+    # for clusters with 100s of tables.
+    #filtering_rules:
+    #  - policy: deny
+    #    pattern: org.apache.cassandra.metrics.table
+    #    scope: global
+    #  - policy: allow
+    #    pattern: org.apache.cassandra.metrics.table.live_ss_table_count
+    #    scope: global
+    #  - policy: allow
+    #    pattern: org.apache.cassandra.metrics.Table.LiveSSTableCount
+    #    scope: global
+    #  - policy: allow
+    #    pattern: org.apache.cassandra.metrics.table.live_disk_space_used
+    #    scope: global
+    #  - policy: allow
+    #    pattern: org.apache.cassandra.metrics.table.LiveDiskSpaceUsed
+    #    scope: global
+    #  - policy: allow
+    #    pattern: org.apache.cassandra.metrics.Table.Pending
+    #    scope: global
+    #  - policy: allow
+    #    pattern: org.apache.cassandra.metrics.Table.Memtable
+    #    scope: global
+    #  - policy: allow
+    #    pattern: org.apache.cassandra.metrics.Table.Compaction
+    #    scope: global
+    #  - policy: allow
+    #    pattern: org.apache.cassandra.metrics.table.read
+    #    scope: global
+    #  - policy: allow
+    #    pattern: org.apache.cassandra.metrics.table.write
+    #    scope: global
+    #  - policy: allow
+    #    pattern: org.apache.cassandra.metrics.table.range
+    #    scope: global
+    #  - policy: allow
+    #    pattern: org.apache.cassandra.metrics.table.coordinator
+    #    scope: global
+    #  - policy: allow
+    #    pattern: org.apache.cassandra.metrics.table.dropped_mutations
+    #    scope: global
+    #  - policy: allow
+    #    pattern: org.apache.cassandra.metrics.table.DroppedMutations
+    #    scope: global
+    
+    
+    #######################################################################
+    ### Disk Logging of Metrics and Events (DataLog)
+    ###
+    ### The default mode enables metrics collection and diagnostic events
+    ### to be stored on local on disk in the location defined by data_dir.
+    ###
+    ### This data can be used to help diagnose cluster / node level problems
+    ### by DataStax support: https://www.datastax.com/keepcalm
+    ###
+    ### The raw data can be parsed using the included datalog-parser.py script
+    write_to_disk_enabled: true
+    
+    ### The maximum number amount of on disk data to store in MB
+    ### Default - 5000
+    #data_dir_max_size_in_mb: 5000
+    
+    ### Directory to store collected metrics.
+    ### Default directory is Cassandra data directory. You can customize the location by uncomment and correct data_dir
+    #data_dir: /var/lib/cassandra
+    
+    ### Directory to store logs for collected metrics. The log file is cassandra-collectd.log
+    ### Default directory is Cassandra log directory. You can customize the location by uncomment and correct log_dir
+    #log_dir: /var/log/cassandra
+
+  collectd.conf.tmpl: |
+    TypesDB "{{collectdRoot}}/usr/share/collectd/types.db"
+    PluginDir "{{collectdRoot}}/usr/lib/collectd"
+    BaseDir "{{collectdRoot}}"
+    
+    Hostname "{{hostName}}"
+    FQDNLookup false
+    
+    #Timeout needs to be high otherwise we can
+    #cause a invalidation storm on large # of tables
+    Interval 10
+    Timeout 10
+    ReadThreads 5
+    WriteThreads 5
+    WriteQueueLimitHigh 500000
+    WriteQueueLimitLow  500000
+    CollectInternalStats true
+    
+    LoadPlugin logfile
+    <Plugin "logfile">
+      File "{{logDir}}/cassandra-collectd.log"
+      LogLevel "info"
+    </Plugin>
+    
+    LoadPlugin write_scribe
+    <Plugin "write_scribe">
+      ConfigFile "{{scribeConfigFile}}"
+      <File "{{logDir}}/cassandra-collectd.log">
+            Instance "collectd.log"
+      </File>
+    
+      SocketFile "{{socketFile}}"
+    </Plugin>
+    
+    LoadPlugin write_prometheus
+    <Plugin write_prometheus>
+        Port "9103"
+    </Plugin>
+    
+    LoadPlugin cpu
+    LoadPlugin df
+    <Plugin df>
+      FsType "ext3"
+      FsType "ext4"
+      FsType "xfs"
+      FsType "zfs"
+      IgnoreSelected False
+    </Plugin>
+    
+    {{^isMac}}
+    LoadPlugin vmem
+    LoadPlugin numa
+    LoadPlugin contextswitch
+    LoadPlugin cpufreq
+    LoadPlugin irq
+    LoadPlugin protocols
+    LoadPlugin ethstat
+    {{/isMac}}
+    
+    LoadPlugin disk
+    <Plugin "disk">
+      Disk "/^loop\d+$/"
+      Disk "/^dm-\d+$/"
+      IgnoreSelected "true"
+    </Plugin>
+    
+    LoadPlugin interface
+    <Plugin "interface">
+      Interface "/^lo\d*$/"
+      Interface "/^docker.*/"
+      Interface "/^t(un|ap)\d*$/"
+      Interface "/^veth.*$/"
+      IgnoreSelected "true"
+    </Plugin>
+    
+    LoadPlugin load
+    LoadPlugin memory
+    LoadPlugin swap
+    LoadPlugin uptime
+    LoadPlugin processes
+    LoadPlugin tcpconns
+    
+    <Plugin "processes">
+      ProcessMatch "all" ".*"
+    </Plugin>
+    <Plugin "tcpconns">
+      ListeningPorts true
+    </Plugin>
+    
+    LoadPlugin match_regex
+    LoadPlugin target_set
+    LoadPlugin target_replace
+    
+    PreCacheChain "PreCache"
+    <Chain "PreCache">
+      <Rule "add_topology_tags">
+        <Match regex>
+          Plugin ".*"                   #Match all
+        </Match>
+    
+        <Target "set">
+          MetaData "cluster" "{{cluster}}"
+          MetaData "dc" "{{dataCenter}}"
+          MetaData "rack" "{{rack}}"
+        </Target>
+      </Rule>
+    
+      <Rule "add_series_tag">
+        <Match regex>
+          Plugin "^(cpu|interfaces|disk)$"
+        </Match>
+    
+        <Target "set">
+          MetaData "insight_series" "1"
+        </Target>
+      </Rule>
+    </Chain>
+    
+    
+    Include "/etc/cassandra/collectd/*.conf"
+    Include "{{collectdRoot}}/etc/collectd/*.conf"
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: cassandra-headless
+  namespace: demo-hub
+  labels:
+    demo-hub.io/group: cassandra-ring
+    app.kubernetes.io/name: cassandra
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app.kubernetes.io/name: cassandra
+    demo-hub.io/cassandra-workload: statefulset
+  ports:
+    - port: 9042
+      name: cql
+      targetPort: 9042
+    - port: 7000
+      name: intra
+      targetPort: 7000
+    - port: 7001
+      name: tls-intra
+      targetPort: 7001
+    - port: 9103
+      name: jmx
+      targetPort: 9103
+    - port: 9501
+      name: mcac
+      targetPort: 9501
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: cassandra
+  namespace: demo-hub
+  labels:
+    demo-hub.io/group: cassandra-ring
+    app.kubernetes.io/name: cassandra
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: cassandra
+    demo-hub.io/cassandra-workload: statefulset
+  ports:
+    - port: 9042
+      name: cql
+      targetPort: 9042
+---
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: cassandra
+  namespace: demo-hub
+  labels:
+    demo-hub.io/group: cassandra-ring
+    app.kubernetes.io/name: cassandra
+spec:
+  serviceName: cassandra-headless
+  replicas: 3
+  podManagementPolicy: OrderedReady
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cassandra
+      demo-hub.io/cassandra-workload: statefulset
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cassandra
+        demo-hub.io/group: cassandra-ring
+        demo-hub.io/cassandra-workload: statefulset
+    spec:
+      initContainers:
+        - name: mcac-copy-agent
+          image: mcac-demo/mcac-init:local
+          imagePullPolicy: Never
+          command:
+            - sh
+            - -c
+            - mkdir -p /mcac/lib && cp -r /agent/lib/. /mcac/lib/
+          volumeMounts:
+            - name: mcac-agent
+              mountPath: /mcac
+      containers:
+        - name: cassandra
+          image: cassandra:4.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: MAX_HEAP_SIZE
+              value: "500M"
+            - name: HEAP_NEWSIZE
+              value: "100M"
+            - name: LOCAL_JMX
+              value: "no"
+            - name: JVM_EXTRA_OPTS
+              value: "-javaagent:/mcac/lib/datastax-mcac-agent-0.3.3.jar -Dcassandra.consistent.rangemovement=false -Dcassandra.ring_delay_ms=100 -Dcassandra.jmx.remote.authenticate=false -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false"
+            - name: CASSANDRA_NUM_TOKENS
+              value: "8"
+            - name: CASSANDRA_SEEDS
+              value: "cassandra-0.cassandra-headless.demo-hub.svc.cluster.local"
+          resources:
+            requests:
+              memory: "1536Mi"
+            limits:
+              memory: "3Gi"
+          ports:
+            - containerPort: 9042
+              name: cql
+            - containerPort: 7000
+              name: intra
+            - containerPort: 9103
+              name: jmx
+            - containerPort: 9501
+              name: mcac
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/cassandra
+            - name: mcac-agent
+              mountPath: /mcac
+            - name: mcac-config
+              mountPath: /mcac/config
+              readOnly: true
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: mcac-agent
+          emptyDir: {}
+        - name: mcac-config
+          configMap:
+            name: mcac-agent-config

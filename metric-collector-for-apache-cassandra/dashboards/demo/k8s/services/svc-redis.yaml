@@ -1,0 +1,16 @@
+# Generated — ClusterIP (redis)
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: redis
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+      name: p-6379
