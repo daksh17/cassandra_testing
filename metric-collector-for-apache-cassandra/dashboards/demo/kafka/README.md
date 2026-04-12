@@ -16,7 +16,7 @@ Host port **9092** is the usual PLAINTEXT listener for tools on your machine.
 
 - **PostgreSQL CDC** — Debezium Postgres source + JDBC sink: **[`../postgres-kafka/README.md`](../postgres-kafka/README.md)** (`register-connectors.sh`).
 - **MongoDB CDC** — Debezium Mongo source + Mongo sink: **[`../mongo-kafka/README.md`](../mongo-kafka/README.md)** (`register-mongo-connectors.sh`).
-- **Kafka metrics** — **`kafka-exporter`** (e.g. port **9308**), scraped by Prometheus (job **`kafka_pgdemo`** in **`../../prometheus/prometheus.yaml`**). Grafana: **Kafka cluster (demo broker)** — **`../../grafana/generated-dashboards/kafka-cluster-overview.json`**, UID **`demo-kafka-cluster`**.
+- **Kafka metrics** — **`kafka-exporter-mcac`** (e.g. port **9308**), scraped by Prometheus (job **`kafka_pgdemo`** in **`../../prometheus/prometheus.yaml`**). Grafana: **Kafka cluster (demo broker)** — **`../../grafana/generated-dashboards/kafka-cluster-overview.json`**, UID **`demo-kafka-cluster`**.
 
 ## Typical commands
 

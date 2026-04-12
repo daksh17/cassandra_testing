@@ -1,0 +1,16 @@
+# Generated — ClusterIP (redis-exporter)
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-exporter
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: redis-exporter
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: redis-exporter
+  ports:
+    - port: 9121
+      targetPort: 9121
+      name: p-9121

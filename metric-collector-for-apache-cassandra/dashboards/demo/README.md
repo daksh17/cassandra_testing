@@ -1,6 +1,6 @@
 ### Cluster Demo
 
-This directory’s **`docker-compose.yml`** defines **one** stack (Cassandra, ZooKeeper/Kafka/Connect, optional Postgres and Mongo demos, **Redis 7**, **OpenSearch**, Prometheus, Grafana). A plain **`docker compose up`** here starts **every service in that file** (no Compose profiles). Prefer **[`start-full-stack.sh`](start-full-stack.sh)** so `PROJECT_VERSION` is set and **`mcac`** / **`kafka-connect`** images are built first.
+This directory’s **`docker-compose.yml`** defines **one** stack (Cassandra, ZooKeeper/Kafka/Connect, optional Postgres and Mongo demos, **Redis 7**, **OpenSearch**, Prometheus, Grafana). A plain **`docker compose up`** here starts **every service in that file** (no Compose profiles). Prefer **[`start-full-stack.sh`](start-full-stack.sh)** so `PROJECT_VERSION` is set, **`mcac`** / **`kafka-connect`** images are built, and the script **runs `docker compose down`, removes orphan / conflicting containers (including legacy `prometheus-mcac`), then `up`s**; named volumes are kept unless you set **`CLEAN_VOLUMES=1`**.
 
 **Kafka Connect:** a one-shot **`kafka-connect-register`** service runs **[`kafka-connect-register/register-all.sh`](kafka-connect-register/register-all.sh)** so all four demo connectors are registered (**Postgres** Debezium + JDBC sink, **Mongo** Debezium + Mongo sink). **Hub UI** “Single order” / “Workload” write to **`demo_items`** (Postgres) and **`demo.demo_items`** (Mongo), which those connectors capture. Re-register from the host with **`./kafka-connect-register/register-all.sh`** if Connect was restarted.
 
@@ -254,7 +254,7 @@ docker volume prune -f
 docker exec "$(docker ps -q -f name=demo-cassandra-1)" nodetool status
 docker exec "$(docker ps -q -f name=demo-cassandra2-1)" nodetool ring
 ```
-(Replace container names if your project prefix is not `demo-`.)
+(Replace container names if your project prefix is not `demo-hub-`.)
 
 **Cassandra – cqlsh (host ports: 19442, 19443, 19444 → nodes 1–3)**
 ```bash

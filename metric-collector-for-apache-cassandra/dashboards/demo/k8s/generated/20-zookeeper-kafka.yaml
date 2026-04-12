@@ -1,0 +1,189 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zookeeper
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: zookeeper
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: kafka
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zookeeper
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: zookeeper
+        app.kubernetes.io/part-of: demo-hub
+        demo-hub.io/group: kafka
+    spec:
+      securityContext:
+        fsGroup: 1001
+      containers:
+        - name: zookeeper
+          image: docker.io/bitnamilegacy/zookeeper:3.9.3-debian-12-r0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: ZOO_PORT_NUMBER
+              value: "2181"
+            - name: ZOO_TICK_TIME
+              value: "2000"
+            - name: ALLOW_ANONYMOUS_LOGIN
+              value: "yes"
+            - name: ZOO_LISTEN_ALLIPS_ENABLED
+              value: "yes"
+          volumeMounts:
+            - name: data
+              mountPath: /bitnami/zookeeper
+          ports:
+            - containerPort: 2181
+              name: client
+          readinessProbe:
+            tcpSocket:
+              port: 2181
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 18
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: zookeeper
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: kafka
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: zookeeper
+  ports:
+    - port: 2181
+      targetPort: 2181
+      name: client
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: kafka
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: kafka
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kafka
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kafka
+        app.kubernetes.io/part-of: demo-hub
+        demo-hub.io/group: kafka
+    spec:
+      securityContext:
+        fsGroup: 1001
+      initContainers:
+        - name: wait-zookeeper
+          image: alpine:3.19
+          command:
+            - /bin/sh
+            - -c
+            - |
+              apk add --no-cache netcat-openbsd >/dev/null
+              for i in $(seq 1 120); do
+                if nc -z -w 2 zookeeper.demo-hub.svc.cluster.local 2181 2>/dev/null; then exit 0; fi
+                sleep 2
+              done
+              echo "timeout waiting for zookeeper.demo-hub.svc.cluster.local:2181" >&2
+              exit 1
+      containers:
+        - name: kafka
+          image: docker.io/bitnamilegacy/kafka:3.7.1-debian-12-r0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: KAFKA_CFG_ZOOKEEPER_CONNECT
+              value: "zookeeper:2181"
+            - name: ALLOW_PLAINTEXT_LISTENER
+              value: "yes"
+            - name: KAFKA_CFG_LISTENERS
+              value: "PLAINTEXT://:9092"
+            - name: KAFKA_CFG_ADVERTISED_LISTENERS
+              value: "PLAINTEXT://kafka:9092"
+            - name: KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP
+              value: "PLAINTEXT:PLAINTEXT"
+            - name: KAFKA_CFG_INTER_BROKER_LISTENER_NAME
+              value: "PLAINTEXT"
+            - name: KAFKA_CFG_BROKER_ID
+              value: "1"
+            - name: KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR
+              value: "1"
+            - name: KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR
+              value: "1"
+            - name: KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
+              value: "1"
+            - name: KAFKA_CFG_GROUP_INITIAL_REBALANCE_DELAY_MS
+              value: "0"
+            - name: KAFKA_CFG_MESSAGE_MAX_BYTES
+              value: "33554432"
+            - name: KAFKA_CFG_REPLICA_FETCH_MAX_BYTES
+              value: "33554432"
+            - name: KAFKA_CFG_SOCKET_REQUEST_MAX_BYTES
+              value: "33554432"
+            - name: KAFKA_HEAP_OPTS
+              value: "-Xmx512m -Xms256m"
+          resources:
+            requests:
+              memory: "1Gi"
+            limits:
+              memory: "2Gi"
+          volumeMounts:
+            - name: data
+              mountPath: /bitnami/kafka
+          ports:
+            - containerPort: 9092
+              name: broker
+          readinessProbe:
+            tcpSocket:
+              port: 9092
+            initialDelaySeconds: 45
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 24
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: kafka
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: kafka
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: kafka
+  ports:
+    - port: 9092
+      targetPort: 9092
+      name: broker

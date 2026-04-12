@@ -1,0 +1,190 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-bootstrap-sql
+  namespace: demo-hub
+  labels:
+    demo-hub.io/group: postgres-ha
+    app.kubernetes.io/part-of: demo-hub
+data:
+  bootstrap.sh: |
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export PGHOST=postgresql-primary
+    export PGPORT=5432
+    until pg_isready -h "$PGHOST" -p "$PGPORT" -U postgres; do sleep 3; done
+    export PGPASSWORD=postgres
+    psql -h "$PGHOST" -U postgres -d demo -v ON_ERROR_STOP=1 -f /scripts/01-init-debezium.sql
+    export PGPASSWORD=replicatorpass
+    psql -h "$PGHOST" -U replicator -d postgres -v ON_ERROR_STOP=1 -f /scripts/ensure-physical-replication-slots.sql
+    export PGPASSWORD=postgres
+    psql -h "$PGHOST" -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS pg_stat_statements;"
+    psql -h "$PGHOST" -U postgres -d demo -v ON_ERROR_STOP=1 -f /scripts/04-scenario-hub-schema-indexes.sql
+    echo "postgres bootstrap done."
+
+  01-init-debezium.sql: |
+    -- Runs on first boot of the Bitnami primary (database "demo").
+    -- Bitnami admin: `postgres` / `postgres`. Application user: `demo` / `demopass` (this script creates `demo`).
+    -- CDC uses replication user `replicator` (Bitnami) + pgoutput publication.
+    -- IMPORTANT: `GRANT SELECT ON ALL TABLES` must run *after* `demo_items` exists, otherwise
+    -- Debezium snapshot fails with: permission denied for table demo_items.
+    
+    GRANT CONNECT ON DATABASE demo TO replicator;
+    GRANT USAGE ON SCHEMA public TO replicator;
+    
+    CREATE USER demo WITH PASSWORD 'demopass';
+    GRANT CONNECT ON DATABASE demo TO demo;
+    GRANT USAGE, CREATE ON SCHEMA public TO demo;
+    GRANT pg_monitor TO demo;
+    
+    CREATE TABLE IF NOT EXISTS demo_items (
+      id         SERIAL PRIMARY KEY,
+      name       TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    
+    ALTER TABLE public.demo_items OWNER TO demo;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.demo_items TO demo;
+    
+    -- Debezium snapshot + streaming read table data as `replicator`
+    GRANT SELECT ON TABLE public.demo_items TO replicator;
+    GRANT SELECT ON ALL TABLES IN SCHEMA public TO replicator;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO replicator;
+    ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT ON TABLES TO replicator;
+    ALTER DEFAULT PRIVILEGES FOR ROLE demo IN SCHEMA public GRANT SELECT ON TABLES TO replicator;
+    
+    CREATE PUBLICATION dbz_publication FOR TABLE public.demo_items;
+    
+    -- Seed rows for demos and Grafana/Prometheus smoke tests (CDC will see these on fresh volumes).
+    INSERT INTO demo_items (name) VALUES
+      ('Acme Corporation'),
+      ('Globex Industries'),
+      ('Initech'),
+      ('Umbrella Labs'),
+      ('Stark Industries'),
+      ('Wayne Enterprises'),
+      ('Hooli'),
+      ('Prestige Worldwide'),
+      ('Vehement Capital Partners'),
+      ('Demo seed row');
+
+  ensure-physical-replication-slots.sql: |
+    -- Idempotent: create physical slots for demo HA replicas if missing (existing primary volumes).
+    -- From dashboards/demo: ./postgres-kafka/apply-physical-replication-slots.sh (runs as `replicator`).
+    -- Requires REPLICATION attribute (or superuser); Bitnami `replicator` user satisfies this.
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_replication_slots WHERE slot_name = 'pgdemo_phys_replica_1') THEN
+        PERFORM pg_create_physical_replication_slot('pgdemo_phys_replica_1', true);
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM pg_replication_slots WHERE slot_name = 'pgdemo_phys_replica_2') THEN
+        PERFORM pg_create_physical_replication_slot('pgdemo_phys_replica_2', true);
+      END IF;
+    END $$;
+
+  04-scenario-hub-schema-indexes.sql: |
+    -- Hub Multi-DB scenario: relational mirror + orders + fulfillment (database "demo").
+    -- Keep in sync with realtime-orders-search-hub/demo-ui/scenario.py:
+    --   ensure_postgres_scenario_schema + _ensure_postgres_scenario_indexes
+    -- Idempotent: safe for initdb and for `psql -f` on an existing DB.
+    
+    CREATE TABLE IF NOT EXISTS scenario_catalog_mirror (
+      id SERIAL PRIMARY KEY,
+      sku TEXT NOT NULL UNIQUE,
+      title TEXT NOT NULL,
+      category TEXT,
+      unit_price_cents INT NOT NULL,
+      stock_units INT NOT NULL DEFAULT 0,
+      source_mongo_id TEXT,
+      kafka_msg_key TEXT,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    
+    CREATE TABLE IF NOT EXISTS scenario_orders (
+      id SERIAL PRIMARY KEY,
+      order_ref TEXT NOT NULL UNIQUE,
+      customer_email TEXT NOT NULL,
+      customer_name TEXT,
+      lines JSONB NOT NULL,
+      total_cents INT NOT NULL,
+      pipeline_stage TEXT NOT NULL DEFAULT 'placed',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    
+    CREATE TABLE IF NOT EXISTS scenario_fulfillment_lines (
+      id SERIAL PRIMARY KEY,
+      order_ref TEXT NOT NULL REFERENCES scenario_orders(order_ref) ON DELETE CASCADE,
+      sku TEXT NOT NULL,
+      qty INT NOT NULL,
+      notes TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    
+    ALTER TABLE public.scenario_catalog_mirror OWNER TO demo;
+    ALTER TABLE public.scenario_orders OWNER TO demo;
+    ALTER TABLE public.scenario_fulfillment_lines OWNER TO demo;
+    
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.scenario_catalog_mirror TO demo;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.scenario_orders TO demo;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.scenario_fulfillment_lines TO demo;
+    GRANT SELECT ON TABLE public.scenario_catalog_mirror TO replicator;
+    GRANT SELECT ON TABLE public.scenario_orders TO replicator;
+    GRANT SELECT ON TABLE public.scenario_fulfillment_lines TO replicator;
+    
+    CREATE EXTENSION IF NOT EXISTS pg_trgm;
+    
+    CREATE INDEX IF NOT EXISTS idx_scenario_catalog_category_price ON scenario_catalog_mirror (category, unit_price_cents, sku);
+    CREATE INDEX IF NOT EXISTS idx_scenario_catalog_updated_at ON scenario_catalog_mirror (updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_scenario_catalog_brin_updated ON scenario_catalog_mirror USING BRIN (updated_at);
+    CREATE INDEX IF NOT EXISTS idx_scenario_catalog_in_stock ON scenario_catalog_mirror (category, sku) WHERE stock_units > 0;
+    CREATE INDEX IF NOT EXISTS idx_scenario_catalog_title_trgm ON scenario_catalog_mirror USING GIST (title gist_trgm_ops);
+    CREATE INDEX IF NOT EXISTS idx_scenario_catalog_kafka_key_hash ON scenario_catalog_mirror USING HASH (kafka_msg_key);
+    
+    CREATE INDEX IF NOT EXISTS idx_scenario_orders_stage_created ON scenario_orders (pipeline_stage, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_scenario_orders_email ON scenario_orders (customer_email);
+    CREATE INDEX IF NOT EXISTS idx_scenario_orders_created_brin ON scenario_orders USING BRIN (created_at);
+    CREATE INDEX IF NOT EXISTS idx_scenario_orders_placed_partial ON scenario_orders (created_at DESC) WHERE pipeline_stage = 'placed';
+    CREATE INDEX IF NOT EXISTS idx_scenario_orders_lines_gin ON scenario_orders USING GIN (lines jsonb_path_ops);
+    CREATE INDEX IF NOT EXISTS idx_scenario_orders_stage_cover ON scenario_orders (pipeline_stage) INCLUDE (order_ref, total_cents);
+    
+    CREATE INDEX IF NOT EXISTS idx_scenario_fulfill_order_ref ON scenario_fulfillment_lines (order_ref);
+    CREATE INDEX IF NOT EXISTS idx_scenario_fulfill_sku ON scenario_fulfillment_lines (sku);
+    CREATE INDEX IF NOT EXISTS idx_scenario_fulfill_order_sku ON scenario_fulfillment_lines (order_ref, sku);
+    CREATE INDEX IF NOT EXISTS idx_scenario_fulfill_brin_created ON scenario_fulfillment_lines USING BRIN (created_at);
+---
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postgres-demo-bootstrap
+  namespace: demo-hub
+  labels:
+    demo-hub.io/group: postgres-ha
+    app.kubernetes.io/part-of: demo-hub
+spec:
+  activeDeadlineSeconds: 7200
+  ttlSecondsAfterFinished: 86400
+  backoffLimit: 4
+  template:
+    metadata:
+      labels:
+        demo-hub.io/group: postgres-ha
+        app.kubernetes.io/part-of: demo-hub
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: run
+          image: docker.io/bitnamilegacy/postgresql:16.6.0-debian-12-r2
+          imagePullPolicy: IfNotPresent
+          command:
+            - "/bin/bash"
+            - "/scripts/bootstrap.sh"
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+      volumes:
+        - name: scripts
+          configMap:
+            name: postgres-bootstrap-sql
+            defaultMode: 0755

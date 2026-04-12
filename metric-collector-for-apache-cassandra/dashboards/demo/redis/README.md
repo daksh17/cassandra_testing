@@ -65,7 +65,7 @@ If every panel shows **No data**: Grafana’s datasource may not be this stack�
 
 ### **`redis_demo` missing on http://localhost:9090/targets**
 
-That page is **this demo’s** Prometheus only if you use **`dashboards/demo/docker-compose.yml`** (container **`prometheus-mcac`**, port **9090**). After you add or change scrape jobs in **`dashboards/prometheus/prometheus.yaml`**, Prometheus **does not pick them up until you restart** (it does not auto-reload the file):
+That page is **this demo’s** Prometheus only if you use **`dashboards/demo/docker-compose.yml`** (service **`prometheus`**, e.g. container **`demo-hub-prometheus-1`** with default project name **`demo-hub`**, port **9090**). After you add or change scrape jobs in **`dashboards/prometheus/prometheus.yaml`**, Prometheus **does not pick them up until you restart** (it does not auto-reload the file):
 
 ```bash
 cd dashboards/demo

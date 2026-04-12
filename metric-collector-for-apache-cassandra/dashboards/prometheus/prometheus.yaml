@@ -327,7 +327,7 @@ scrape_configs:
           pg_cluster: pgdemo
           pg_role: replica_2
 
-  # Kafka (danielqsj/kafka-exporter; broker PLAINTEXT kafka:29092)
+  # Kafka (danielqsj/kafka-exporter; broker PLAINTEXT kafka:29092). Hostname = compose service kafka-exporter-mcac.
   - job_name: "kafka_pgdemo"
     scrape_interval: 15s
     scrape_timeout: 10s
@@ -335,7 +335,7 @@ scrape_configs:
     scheme: http
     static_configs:
       - targets:
-          - kafka-exporter:9308
+          - kafka-exporter-mcac:9308
         labels:
           kafka_cluster: pgdemo
 

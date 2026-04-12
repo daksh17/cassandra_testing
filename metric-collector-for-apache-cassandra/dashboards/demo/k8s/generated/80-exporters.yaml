@@ -1,0 +1,288 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-exporter-primary
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: postgres-exporter-primary
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: exporters
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgres-exporter-primary
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgres-exporter-primary
+        app.kubernetes.io/part-of: demo-hub
+        demo-hub.io/group: exporters
+    spec:
+      containers:
+        - name: postgres-exporter-primary
+          image: prometheuscommunity/postgres-exporter:v0.17.1
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: DATA_SOURCE_URI
+              value: "postgresql-primary:5432/demo?sslmode=disable"
+            - name: DATA_SOURCE_USER
+              value: "demo"
+            - name: DATA_SOURCE_PASS
+              value: "demopass"
+          ports:
+            - containerPort: 9187
+              name: metrics
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-exporter-primary
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: postgres-exporter-primary
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: exporters
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: postgres-exporter-primary
+  ports:
+    - port: 9187
+      targetPort: 9187
+      name: metrics
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-exporter-replica-1
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: postgres-exporter-replica-1
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: exporters
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgres-exporter-replica-1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgres-exporter-replica-1
+        app.kubernetes.io/part-of: demo-hub
+        demo-hub.io/group: exporters
+    spec:
+      containers:
+        - name: postgres-exporter-replica-1
+          image: prometheuscommunity/postgres-exporter:v0.17.1
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: DATA_SOURCE_URI
+              value: "postgresql-replica-1:5432/demo?sslmode=disable"
+            - name: DATA_SOURCE_USER
+              value: "demo"
+            - name: DATA_SOURCE_PASS
+              value: "demopass"
+          ports:
+            - containerPort: 9187
+              name: metrics
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-exporter-replica-1
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: postgres-exporter-replica-1
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: exporters
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: postgres-exporter-replica-1
+  ports:
+    - port: 9187
+      targetPort: 9187
+      name: metrics
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-exporter-replica-2
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: postgres-exporter-replica-2
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: exporters
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgres-exporter-replica-2
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgres-exporter-replica-2
+        app.kubernetes.io/part-of: demo-hub
+        demo-hub.io/group: exporters
+    spec:
+      containers:
+        - name: postgres-exporter-replica-2
+          image: prometheuscommunity/postgres-exporter:v0.17.1
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: DATA_SOURCE_URI
+              value: "postgresql-replica-2:5432/demo?sslmode=disable"
+            - name: DATA_SOURCE_USER
+              value: "demo"
+            - name: DATA_SOURCE_PASS
+              value: "demopass"
+          ports:
+            - containerPort: 9187
+              name: metrics
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-exporter-replica-2
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: postgres-exporter-replica-2
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: exporters
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: postgres-exporter-replica-2
+  ports:
+    - port: 9187
+      targetPort: 9187
+      name: metrics
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-exporter-mcac
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: kafka-exporter-mcac
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: exporters
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kafka-exporter-mcac
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kafka-exporter-mcac
+        app.kubernetes.io/part-of: demo-hub
+        demo-hub.io/group: exporters
+    spec:
+      initContainers:
+        - name: wait-kafka
+          image: alpine:3.19
+          command:
+            - /bin/sh
+            - -c
+            - |
+              apk add --no-cache netcat-openbsd >/dev/null
+              for i in $(seq 1 150); do
+                if nc -z -w 2 kafka.demo-hub.svc.cluster.local 9092 2>/dev/null; then exit 0; fi
+                sleep 2
+              done
+              echo "timeout waiting for kafka.demo-hub.svc.cluster.local:9092" >&2
+              exit 1
+      containers:
+        - name: kafka-exporter-mcac
+          image: danielqsj/kafka-exporter:v1.7.0
+          imagePullPolicy: IfNotPresent
+          args:
+            - "--kafka.server=kafka:9092"
+          ports:
+            - containerPort: 9308
+              name: metrics
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-exporter-mcac
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: kafka-exporter-mcac
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: exporters
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: kafka-exporter-mcac
+  ports:
+    - port: 9308
+      targetPort: 9308
+      name: metrics
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongodb-exporter
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongodb-exporter
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: exporters
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mongodb-exporter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mongodb-exporter
+        app.kubernetes.io/part-of: demo-hub
+        demo-hub.io/group: exporters
+    spec:
+      containers:
+        - name: mongodb-exporter
+          image: percona/mongodb_exporter:0.40
+          imagePullPolicy: IfNotPresent
+          args:
+            - "--collect-all"
+            - "--compatible-mode"
+          env:
+            - name: MONGODB_URI
+              value: "mongodb://mongo-mongos1:27017"
+          ports:
+            - containerPort: 9216
+              name: metrics
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb-exporter
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongodb-exporter
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: exporters
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: mongodb-exporter
+  ports:
+    - port: 9216
+      targetPort: 9216
+      name: metrics

@@ -6,10 +6,12 @@
 # Per-area docs: cassandra/README.md · kafka/README.md · observability/README.md · redis/README.md ·
 #   opensearch/README.md · postgres-kafka/README.md · mongo-kafka/README.md · mongo-sharded/README.md
 # Index: README.md
+# Default Compose project name (overridable with COMPOSE_PROJECT_NAME). Container prefix: demo-hub-<service>-N
+name: demo-hub
+
 services:
   prometheus:
     image: "prom/prometheus:v2.17.1"
-    container_name: prometheus-mcac
     restart: unless-stopped
     ports:
       - "9090:9090"
@@ -45,6 +47,9 @@ services:
 
   nodetool-exporter:
     build: ./nodetool-exporter
+    # Same tag as Kubernetes manifests (`gen_demo_hub_k8s.py`) so `docker compose build nodetool-exporter`
+    # produces an image you can `kind load docker-image` / `minikube image load` without retagging.
+    image: demo-hub/nodetool-exporter:latest
     platform: linux/amd64
     ports:
       - "9104:9104"
@@ -423,7 +428,8 @@ services:
       postgresql-replica-2:
         condition: service_healthy
 
-  kafka-exporter:
+  # Service name suffix avoids a stuck engine record on "demo-kafka-exporter-1" (uname kill/rm may fail).
+  kafka-exporter-mcac:
     image: danielqsj/kafka-exporter:v1.7.0
     restart: unless-stopped
     command:
@@ -700,6 +706,8 @@ services:
       - discovery.type=single-node
       - DISABLE_SECURITY_PLUGIN=true
       - DISABLE_INSTALL_DEMO_CONFIG=true
+      # Dev: avoid flood-stage blocks when host disk is >95% full (breaks hub-demo-ui index create).
+      - cluster.routing.allocation.disk.threshold_enabled=false
       - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m -XX:MaxDirectMemorySize=256m"
     ulimits:
       nofile:
@@ -723,8 +731,9 @@ services:
     image: opensearchproject/opensearch-dashboards:2.11.1
     restart: unless-stopped
     environment:
-      - OPENSEARCH_HOSTS=["http://opensearch:9200"]
-      - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
+      # Must be a quoted JSON array — unquoted ["http://..."] breaks YAML and yields Dashboards 500 + OpenSearch connection errors.
+      OPENSEARCH_HOSTS: '["http://opensearch:9200"]'
+      DISABLE_SECURITY_DASHBOARDS_PLUGIN: "true"
     ports:
       - "5601:5601"
     networks:
@@ -769,8 +778,10 @@ services:
       OPENSEARCH_URL: http://opensearch:9200
       OPENSEARCH_INDEX: hub-orders
       KAFKA_BOOTSTRAP: kafka:29092
-      # Sustain + large payload waves: many sequential BatchStatements; default driver timeout ~10s can fail under load.
-      CASSANDRA_WORKLOAD_REQUEST_TIMEOUT_SECONDS: "180"
+      # Sustain + large payload waves: many sequential BatchStatements; demo Cassandra uses 500M heap — throttle + long timeout helps avoid coordinator timeouts (code 1100).
+      CASSANDRA_WORKLOAD_REQUEST_TIMEOUT_SECONDS: "300"
+      CASSANDRA_WORKLOAD_INTER_BATCH_SLEEP_MS: "25"
+      CASSANDRA_WORKLOAD_WRITE_RETRIES: "3"
     networks:
       - demo_net
     depends_on:

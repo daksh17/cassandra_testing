@@ -1,0 +1,16 @@
+# Generated — ClusterIP (kafka-connect)
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-connect
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: kafka-connect
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: kafka-connect
+  ports:
+    - port: 8083
+      targetPort: 8083
+      name: p-8083

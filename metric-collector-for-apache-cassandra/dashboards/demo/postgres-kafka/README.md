@@ -159,7 +159,7 @@ From `dashboards/demo` (same directory as `docker-compose.yml`):
 
 ```bash
 docker compose up -d zookeeper kafka postgresql-primary postgresql-replica-1 postgresql-replica-2 \
-  kafka-connect postgres-exporter-primary postgres-exporter-replica-1 postgres-exporter-replica-2 kafka-exporter
+  kafka-connect postgres-exporter-primary postgres-exporter-replica-1 postgres-exporter-replica-2 kafka-exporter-mcac
 ```
 
 Start **Prometheus** and **Grafana** if they are not already running (they scrape/listen on the shared Docker network `mc_net`):
@@ -296,7 +296,7 @@ docker compose rm -f postgresql-primary postgresql-replica-1 postgresql-replica-
 docker volume rm demo_postgres_primary_data demo_postgres_replica1_data demo_postgres_replica2_data
 ```
 
-Adjust volume names if your Compose project name is not `demo` (`docker volume ls | grep postgres`).
+Adjust volume names if your Compose project name is not `demo-hub` (`docker volume ls | grep postgres`).
 
 ## Files in this directory
 

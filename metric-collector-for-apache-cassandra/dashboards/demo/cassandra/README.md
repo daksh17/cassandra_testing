@@ -110,6 +110,72 @@ SELECT data_center FROM system.local;
 
 (`system.local` is the node you connected to; all should show the same DC in a homogenous cluster.)
 
+## Compaction lab: TWCS vs LCS
+
+Two optional tables in **`demo_hub`** illustrate **TimeWindowCompactionStrategy (TWCS)** vs **LeveledCompactionStrategy (LCS)**.
+
+| Table | Strategy | Typical use |
+|-------|-----------|-------------|
+| **`lab_twcs_sensor`** | TWCS (4-hour windows) | Time-series: partition `(sensor_id, day)`, clustering `event_ts` ASC — inserts ordered in time per partition. |
+| **`lab_lcs_lookup`** | LCS (~160 MiB level size) | Read-heavy / random key lookups by **`id`** (UUID). |
+
+**Create tables** (from **`dashboards/demo`**):
+
+```bash
+./cassandra/apply-compaction-lab.sh
+# optional sample rows:
+./cassandra/apply-compaction-lab.sh --with-samples
+```
+
+Sources: [`ensure-compaction-lab.cql`](ensure-compaction-lab.cql), [`insert-compaction-lab-samples.cql`](insert-compaction-lab-samples.cql).
+
+**Inspect compaction settings:**
+
+```sql
+DESCRIBE TABLE demo_hub.lab_twcs_sensor;
+DESCRIBE TABLE demo_hub.lab_lcs_lookup;
+```
+
+**Exercise compaction (first node):**
+
+```bash
+docker compose exec cassandra nodetool flush demo_hub
+docker compose exec cassandra nodetool compactionstats
+docker compose exec cassandra nodetool tablestats demo_hub lab_twcs_sensor
+docker compose exec cassandra nodetool tablestats demo_hub lab_lcs_lookup
+```
+
+**What to look for:** TWCS creates **time windows** of SSTables and drops whole windows when TTL expires (this lab uses **`default_time_to_live = 0`** — set TTL in your tests if you want window drops). LCS **levels** SSTables and minimizes read amplification for wide rows / heavy reads by key. For heavier load, bulk-insert into **`lab_twcs_sensor`** with **monotonic `event_ts`** within each `(sensor_id, day)` partition; for LCS, many **distinct UUID** keys.
+
+If you already created these tables earlier **without** custom compaction, **`CREATE IF NOT EXISTS` will not alter them** — `DROP TABLE` the lab table and re-run **`apply-compaction-lab.sh`**, or `ALTER TABLE ... WITH compaction = { ... }` to switch strategies.
+
+### TWCS 2-minute windows + varying `gc_grace_seconds` (30 / 60 / 90 / 120 s)
+
+Four tables isolate **tombstone / repair grace** while keeping **TWCS** at **2-minute** windows:
+
+| Table | `gc_grace_seconds` |
+|-------|---------------------|
+| **`lab_twcs_w2m_gc30`** | 30 |
+| **`lab_twcs_w2m_gc60`** | 60 |
+| **`lab_twcs_w2m_gc90`** | 90 |
+| **`lab_twcs_w2m_gc120`** | 120 |
+
+**Schema:** [`ensure-twcs-gc-lab.cql`](ensure-twcs-gc-lab.cql) — apply with **`./cassandra/apply-twcs-gc-lab.sh`**.
+
+**Load (host needs `pip install cassandra-driver`):** [`load_twcs_gc_lab.py`](load_twcs_gc_lab.py) inserts **time-ordered** rows into a single `(sensor_id, day)` partition (default **`loadtest`** + UTC **day**), which matches how TWCS expects writes.
+
+```bash
+./cassandra/apply-twcs-gc-lab.sh
+# one table:
+python3 cassandra/load_twcs_gc_lab.py --gc 60 --rows 30000 --batch-size 100
+# or full sweep (same row count for all four):
+ROWS=20000 ./cassandra/run-twcs-gc-sweep.sh
+```
+
+Use **`--hosts cassandra --port 9042`** when running **inside** the compose network. On the Mac, default is **`127.0.0.1:19442`**.
+
+**Observe:** after load, `nodetool flush` / `nodetool compactionstats` / `nodetool tablestats demo_hub lab_twcs_w2m_gc60`. **`gc_grace_seconds`** affects how long **tombstones** must be retained before they can be purged after compaction — compare behavior when you add **deletes** or **TTL** in a follow-up experiment; pure inserts mainly stress **TWCS windowing** and write path.
+
 ## Further reading
 
 - Full demo walkthrough, stress, and topology: **[`../README.md`](../README.md)**.

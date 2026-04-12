@@ -1,0 +1,218 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgresql-primary
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: postgresql-primary
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: postgres-ha
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgresql-primary
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgresql-primary
+        app.kubernetes.io/part-of: demo-hub
+        demo-hub.io/group: postgres-ha
+    spec:
+      containers:
+        - name: postgresql-primary
+          image: docker.io/bitnamilegacy/postgresql:16.6.0-debian-12-r2
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: POSTGRESQL_REPLICATION_MODE
+              value: "master"
+            - name: POSTGRESQL_REPLICATION_USER
+              value: "replicator"
+            - name: POSTGRESQL_REPLICATION_PASSWORD
+              value: "replicatorpass"
+            - name: POSTGRESQL_USERNAME
+              value: "postgres"
+            - name: POSTGRESQL_PASSWORD
+              value: "postgres"
+            - name: POSTGRESQL_DATABASE
+              value: "demo"
+            - name: POSTGRESQL_SHARED_PRELOAD_LIBRARIES
+              value: "pgaudit,pg_stat_statements"
+            - name: POSTGRESQL_EXTRA_FLAGS
+              value: "-c wal_level=logical -c max_replication_slots=8 -c max_wal_senders=8 -c pg_stat_statements.max=10000 -c pg_stat_statements.track=all"
+          volumeMounts:
+            - name: data
+              mountPath: /bitnami/postgresql
+          ports:
+            - containerPort: 5432
+              name: pg
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgresql-primary
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: postgresql-primary
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: postgres-ha
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: postgresql-primary
+  ports:
+    - port: 5432
+      targetPort: 5432
+      name: pg
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgresql-replica-1
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: postgresql-replica-1
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: postgres-ha
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgresql-replica-1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgresql-replica-1
+        app.kubernetes.io/part-of: demo-hub
+        demo-hub.io/group: postgres-ha
+    spec:
+      containers:
+        - name: postgresql-replica-1
+          image: docker.io/bitnamilegacy/postgresql:16.6.0-debian-12-r2
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: POSTGRESQL_REPLICATION_MODE
+              value: "slave"
+            - name: POSTGRESQL_REPLICATION_USER
+              value: "replicator"
+            - name: POSTGRESQL_REPLICATION_PASSWORD
+              value: "replicatorpass"
+            - name: POSTGRESQL_USERNAME
+              value: "postgres"
+            - name: POSTGRESQL_PASSWORD
+              value: "postgres"
+            - name: POSTGRESQL_MASTER_HOST
+              value: "postgresql-primary"
+            - name: POSTGRESQL_MASTER_PORT_NUMBER
+              value: "5432"
+            - name: POSTGRESQL_SHARED_PRELOAD_LIBRARIES
+              value: "pgaudit,pg_stat_statements"
+            - name: POSTGRESQL_EXTRA_FLAGS
+              value: "-c primary_slot_name=pgdemo_phys_replica_1 -c pg_stat_statements.max=10000 -c pg_stat_statements.track=all"
+          volumeMounts:
+            - name: data
+              mountPath: /bitnami/postgresql
+          ports:
+            - containerPort: 5432
+              name: pg
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgresql-replica-1
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: postgresql-replica-1
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: postgres-ha
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: postgresql-replica-1
+  ports:
+    - port: 5432
+      targetPort: 5432
+      name: pg
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgresql-replica-2
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: postgresql-replica-2
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: postgres-ha
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgresql-replica-2
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgresql-replica-2
+        app.kubernetes.io/part-of: demo-hub
+        demo-hub.io/group: postgres-ha
+    spec:
+      containers:
+        - name: postgresql-replica-2
+          image: docker.io/bitnamilegacy/postgresql:16.6.0-debian-12-r2
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: POSTGRESQL_REPLICATION_MODE
+              value: "slave"
+            - name: POSTGRESQL_REPLICATION_USER
+              value: "replicator"
+            - name: POSTGRESQL_REPLICATION_PASSWORD
+              value: "replicatorpass"
+            - name: POSTGRESQL_USERNAME
+              value: "postgres"
+            - name: POSTGRESQL_PASSWORD
+              value: "postgres"
+            - name: POSTGRESQL_MASTER_HOST
+              value: "postgresql-primary"
+            - name: POSTGRESQL_MASTER_PORT_NUMBER
+              value: "5432"
+            - name: POSTGRESQL_SHARED_PRELOAD_LIBRARIES
+              value: "pgaudit,pg_stat_statements"
+            - name: POSTGRESQL_EXTRA_FLAGS
+              value: "-c primary_slot_name=pgdemo_phys_replica_2 -c pg_stat_statements.max=10000 -c pg_stat_statements.track=all"
+          volumeMounts:
+            - name: data
+              mountPath: /bitnami/postgresql
+          ports:
+            - containerPort: 5432
+              name: pg
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgresql-replica-2
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: postgresql-replica-2
+    app.kubernetes.io/part-of: demo-hub
+    demo-hub.io/group: postgres-ha
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: postgresql-replica-2
+  ports:
+    - port: 5432
+      targetPort: 5432
+      name: pg

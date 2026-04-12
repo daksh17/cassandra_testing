@@ -1,0 +1,16 @@
+# Generated — ClusterIP (opensearch-exporter)
+apiVersion: v1
+kind: Service
+metadata:
+  name: opensearch-exporter
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: opensearch-exporter
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: opensearch-exporter
+  ports:
+    - port: 7979
+      targetPort: 7979
+      name: p-7979

@@ -1,0 +1,16 @@
+# Generated — ClusterIP (hub-demo-ui)
+apiVersion: v1
+kind: Service
+metadata:
+  name: hub-demo-ui
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: hub-demo-ui
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: hub-demo-ui
+  ports:
+    - port: 8888
+      targetPort: 8888
+      name: p-8888

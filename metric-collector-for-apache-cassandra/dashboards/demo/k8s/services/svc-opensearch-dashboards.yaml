@@ -1,0 +1,16 @@
+# Generated — ClusterIP (opensearch-dashboards)
+apiVersion: v1
+kind: Service
+metadata:
+  name: opensearch-dashboards
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: opensearch-dashboards
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: opensearch-dashboards
+  ports:
+    - port: 5601
+      targetPort: 5601
+      name: p-5601

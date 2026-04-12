@@ -1,0 +1,16 @@
+# Generated — ClusterIP (mongodb-exporter-local)
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb-exporter-local
+  namespace: demo-hub
+  labels:
+    app.kubernetes.io/name: mongodb-exporter-local
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: mongodb-exporter-local
+  ports:
+    - port: 9216
+      targetPort: 9216
+      name: p-9216

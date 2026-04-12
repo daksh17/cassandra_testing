@@ -34,6 +34,16 @@ curl -s 'http://localhost:9200/hub-orders/_search?pretty' -H 'Content-Type: appl
 
 Python example (same as the hub UI): `httpx.get("http://localhost:9200/…")` or `httpx.post("http://opensearch:9200/_bulk", …)` from inside the stack.
 
+### JDBC tools (DbVisualizer, DBeaver, etc.)
+
+**Do not use Elastic’s X-Pack SQL JDBC driver** (`org.elasticsearch.xpack.sql.jdbc.EsDriver`) against OpenSearch. That driver enforces **Elasticsearch ≥ 9.2** and compares the server’s version string; OpenSearch **2.11.x** fails that check with an error like *“only compatible with Elasticsearch version 9.2 or newer; attempting to connect to a server version 2.11.1”*. That is expected: OpenSearch is a separate product with its own versioning, not Elasticsearch 2.x.
+
+For this demo, prefer:
+
+- **OpenSearch Dashboards** → **Dev Tools** (`http://localhost:5601`) for `_search`, `_cat`, and other REST requests.
+- **curl** / **httpx** / **`opensearch-py`** or **`elasticsearch`** Python clients against **`http://localhost:9200`** (REST index/search APIs, not Elastic JDBC).
+- If you specifically need **SQL over OpenSearch**, use the [OpenSearch SQL plugin](https://opensearch.org/docs/latest/search-plugins/sql/index/) and tools documented for that stack (not the Elastic JDBC driver).
+
 ## Authentication (this demo)
 
 With **`DISABLE_SECURITY_PLUGIN=true`**, there is **no** username/password on the OpenSearch HTTP API. **Do not expose these ports to the internet.**
@@ -103,6 +113,38 @@ flowchart LR
 ## Versions
 
 Images are pinned to **OpenSearch 2.11.1** and matching **OpenSearch Dashboards 2.11.1**.
+
+## Troubleshooting
+
+### Dashboards returns HTTP 500; logs show `flood-stage watermark` / `.kibana_1` read-only
+
+OpenSearch protects the disk by putting indices into **`read_only_allow_delete`** when free space drops below the **flood-stage** watermark. **OpenSearch Dashboards** stores its metadata in **`.kibana_*`** indices; when those are read-only, the UI answers **500** even though `curl http://localhost:9200/_cluster/health` may still show **yellow** or **green**.
+
+**Fix (in order):**
+
+1. **Free disk** on the machine that holds Docker/Orchestrator storage (OrbStack/Docker Desktop VM, build cache, old images). If the volume stays over-full, the cluster can block again immediately.
+2. From **`dashboards/demo`**, run the helper (disables disk threshold checks for this **local** demo cluster and clears the read-only flag):
+
+   ```bash
+   chmod +x opensearch/fix-disk-flood-readonly.sh
+   ./opensearch/fix-disk-flood-readonly.sh
+   docker compose restart opensearch-dashboards
+   ```
+
+   Or the same steps manually:
+
+   ```bash
+   curl -sS -X PUT 'http://localhost:9200/_cluster/settings' \
+     -H 'Content-Type: application/json' \
+     -d '{"persistent":{"cluster.routing.allocation.disk.threshold_enabled":false}}'
+   curl -sS -X PUT 'http://localhost:9200/*/_settings' \
+     -H 'Content-Type: application/json' \
+     -d '{"index.blocks.read_only_allow_delete":null}'
+   ```
+
+   Turning **`threshold_enabled`** off is appropriate for a **single-node dev** volume on a laptop; do **not** use that as a production default.
+
+3. Inspect shard / disk signals: `curl -s 'http://localhost:9200/_cat/allocation?v'` and host **`df -h`**.
 
 ## Further reading
 
