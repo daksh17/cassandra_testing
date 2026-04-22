@@ -1,0 +1,2 @@
+[console_scripts]
+mcac-dash = tui.app:main

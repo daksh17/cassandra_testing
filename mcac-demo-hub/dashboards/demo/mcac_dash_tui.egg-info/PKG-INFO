@@ -1,0 +1,6 @@
+Metadata-Version: 2.1
+Name: mcac-dash-tui
+Version: 0.1.0
+Summary: Interactive TUI for MCAC Grafana dashboard editing
+Requires-Python: >=3.11
+Requires-Dist: textual>=0.86.0

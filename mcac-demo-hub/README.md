@@ -1,0 +1,190 @@
+Dated: February 10, 2026
+
+This repository was temporarily offline following the confirmation of unauthorized activity within a limited number of our public Datastax GitHub repositories, listed below. Working with our internal incident response team, we took steps to contain, remediate and investigate the activity.
+
+We followed established incident-response processes to review and to revert any unauthorized activity.
+
+Required Actions: Collaborators who interacted with this repository between January 31, 2026, and February 3, 2026, rebase your branch onto the new `main`/ `master`. Do not merge `main` / `master` into your branch.
+
+At Datastax, we remain committed to your security and to transparency within the open-source community.
+
+Impacted Repositories:
+
+- https://github.com/datastax/cassandra-quarkus[]
+- https://github.com/datastax/graph-examples[]
+- https://github.com/datastax/metric-collector-for-apache-cassandra[]
+- https://github.com/datastax/native-protocol[]
+- https://github.com/datastax/pulsar-sink[]
+
+Developers should review their environments for the following Indicators of Compromise in conjunction with downloading the impacted repositories:
+- File SHA1 Hashes:
+  - def338ee2fbc6f84b4a22ead67471824fe1a565f
+  - 78be1ea752622c75fd5c636abc2e6e7a51484323
+- File names:
+  - .vscode/tasks.json
+  - temp_auto_push.bat
+- Domain names:
+  - vscode-extension-260120.vercel[.]app
+  - fullnode.mainnet.aptoslabs[.]com
+  - api.trongrid[.]io
+  - bsc-dataseed.binance[.]org
+- IP addresses:
+  - 23.27.20[.]143
+  - 136.0.9[.]8
+- The user agent for the git pushes was git/2.51.0.vfs.0.3-Windows
+
+Metric Collector for Apache Cassandra&reg; (MCAC)
+=================================================
+
+Metric collection and Dashboards for Apache Cassandra (2.2, 3.0, 3.11, 4.0) clusters.
+
+This tree is often checked out as **`mcac-demo-hub`**: same **MCAC** agent and dashboards, plus a multi-technology **demo-hub** reference stack (Kafka, PostgreSQL, MongoDB, Redis, OpenSearch, Prometheus, Grafana, FastAPI hub) under **[`dashboards/demo/`](dashboards/demo/)**. Shared docs: **[`dashboards/demo/docs/`](dashboards/demo/docs/)**.
+
+![Testing](https://github.com/datastax/metric-collector-for-apache-cassandra/workflows/Testing/badge.svg)
+![Release](https://github.com/datastax/metric-collector-for-apache-cassandra/workflows/Release/badge.svg)
+
+## Introduction
+
+   Metric Collector for Apache Cassandra (MCAC) aggregates OS and C* metrics along with diagnostic events
+   to facilitate problem resolution and remediation.
+   It supports existing Apache Cassandra clusters and is a self contained drop in agent.
+
+   * Built on [collectd](https://collectd.org), a popular, well-supported, open source metric collection agent.
+   With over 90 plugins, you can tailor the solution to collect metrics most important to you and ship them to
+   wherever you need.
+
+   * Easily added to Cassandra nodes as a java agent, Apache Cassandra sends metrics and other structured events
+   to collectd over a local unix socket.  
+
+   * Fast and efficient.  It can track over 100k unique metric series per node (i.e. hundreds of tables).
+
+   * Comes with extensive dashboards out of the box, built on [prometheus](http://prometheus.io) and [grafana](http://grafana.com).  
+     The Cassandra dashboards let you aggregate latency accurately across all nodes, dc or rack, down to an individual table.   
+
+     ![](.screenshots/overview.png)    
+     ![](.screenshots/os.png)
+     ![](.screenshots/cluster.png)
+
+## Design Principles
+
+  * Little/No performance impact to C*
+  * Simple to install and self managed
+  * Collect all OS and C* metrics by default
+  * Keep historical metrics on node for analysis
+  * Provide useful integration with prometheus and grafana
+
+## Repository layout (what each folder is for)
+
+| Path | Purpose |
+|------|---------|
+| **`src/main/java`** | MCAC **Java agent** (ByteBuddy instrumentation, collectd integration, Prometheus endpoint). |
+| **`src/main/resources`** | Packaged agent resources (templates, defaults). |
+| **`src/test`** | Unit/integration tests and test resources. |
+| **`config/`** | Runtime templates for the agent: **`metric-collector.yaml`**, **`collectd.conf.tmpl`**, etc. |
+| **`scripts/`** | Small utilities (e.g. **`datalog-parser.py`** for on-node JSON datalogs). |
+| **`dashboards/prometheus/`** | **`prometheus.yaml`** scrape config, **`tg_mcac.json`** file_sd targets for Cassandra nodes with MCAC. |
+| **`dashboards/grafana/`** | **`dashboards-jsonnet/`** (Jsonnet sources), **`generated-dashboards/`** (JSON for Grafana), provisioning YAML, optional **`for-import/`** community dashboards. |
+| **`dashboards/k8s-build/`** | Notes/templates for running MCAC-oriented workloads on Kubernetes ([README](dashboards/k8s-build/README.md)). |
+| **`dashboards/demo/`** | **Full local demo**: Docker Compose stack (Cassandra ring, Kafka, Postgres, Mongo, Redis, OpenSearch, Prometheus, Grafana, hub UI) — see [dashboards/demo/README.md](dashboards/demo/README.md). **Shared docs (same app on Compose + K8s):** [dashboards/demo/docs/README.md](dashboards/demo/docs/README.md). **Deploy** entry points: [dashboards/demo/deploy/README.md](dashboards/demo/deploy/README.md). |
+| **`dashboards/demo/deploy/k8s/`** | **Kubernetes** variant of the same demo: generated YAML, **`deploy/k8s/scripts/demo-hub.sh`**, **`port-forward-demo-hub.sh`**, [deploy/k8s/README.md](dashboards/demo/deploy/k8s/README.md). |
+| **`dashboards/demo/deploy/docker/`** | **Compose stack assets**: `cassandra/`, `kafka/`, `kafka-connect-register/`, `postgres-kafka/`, `mongo-kafka/`, `mongo-sharded/`, `redis/`, `opensearch/`, `observability/`, `realtime-orders-search-hub/` (hub UI), `nodetool-exporter/`, `scripts/`, etc. **`docker-compose.yml`** stays at **`dashboards/demo/`**; paths use **`./deploy/docker/...`**. Index: [deploy/docker/README.md](dashboards/demo/deploy/docker/README.md). |
+| **Root `Dockerfile`**, **`pom.xml`**, **`make_package.sh`**, **`build_version.sh`** | Build the **agent JAR/image** and release packaging. |
+| **`.github/workflows`** | CI (test/release badges in this README). |
+| **`target/`** | Maven build output (local only; usually gitignored). |
+| **`.screenshots/`** | Images referenced from this README. |
+
+## Try the demo
+`docker-compose up` is all you need from the [dashboards/demo](dashboards/demo) directory to get a cluster with a light
+workload and dashboards connected to kick the tires.
+
+## Installation of Agent
+
+ 1. Download the [latest release](https://github.com/datastax/metric-collector-for-apache-cassandra/releases/latest) of the agent onto your Cassandra nodes.
+ The archive is self contained so no need do anything other than `tar -zxf latest.tar.gz`
+ into any location you prefer like `/usr/local` or `/opt`.
+ 
+**NOTE:** For Cassandra 4.1.x and newer, you will need to use the release bundle with `-4.1-beta1` appended.
+For Cassandra 4.0.x and lower, you will need to use the release bundle without the extra prefix.
+See [below](#cassandra-version-supported) for more.
+
+ 2. Add the following line into the `cassandra-env.sh` file:
+
+     ````
+     MCAC_ROOT=/path/to/directory
+     JVM_OPTS="$JVM_OPTS -javaagent:${MCAC_ROOT}/lib/datastax-mcac-agent.jar"
+     ````
+ 3. Bounce the node.  
+
+ On restart you should see `'Starting DataStax Metric Collector for Apache Cassandra'` in the Cassandra system.log
+ and the prometheus exporter will be available on port `9103`
+
+ The [config/metric-collector.yaml](config/metric-collector.yaml) file requires no changes by default but please read and add any customizations like
+ filtering of metrics you don't need.
+
+ The [config/collectd.conf.tmpl](config/collectd.conf.tmpl) file can also be edited to change default collectd plugins enabled.  But it's recommended
+ you use the [include path pattern](https://collectd.org/documentation/manpages/collectd.conf.5.shtml#include_path_pattern)
+ to configure extra plugins.
+
+## Installing the Prometheus Dashboards
+
+ 1. Download the [latest release](https://github.com/datastax/metric-collector-for-apache-cassandra/releases/latest) of the dashboards and unzip.
+
+ 2. Install [Docker compose](https://docs.docker.com/compose/install/)
+
+ 3. Add the list of C* nodes with running agents to [tg_mcac.json](dashboards/prometheus/tg_mcac.json)
+
+ 4. `docker-compose up` will start everything and begin collection of metrics
+
+ 5. The Grafana web ui runs on port `3000` and the prometheus web ui runs on port `9090`
+
+ If you have an existing prometheus setup you will need the dashboards and [relabel config](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#relabel_config) from the
+ included [prometheus.yaml](dashboards/prometheus/prometheus.yaml) file.
+
+## Cassandra version supported:
+
+The supported versions of Apache Cassandra: 2.2+ (2.2.X, 3.0.X, 3.11.X, 4.0, 4.1)
+
+**NOTE:** There is a different install bundle for the agent for Cassandra 4.1 and newer.
+For Cassandra 4.0.x and older, use the bundles without the `-4.1-beta1` suffix.
+For Cassandra 4.1.x and newer, use the bundles with the `-4.1-beta1` suffix.
+The Dashboard bundles can be used with any version of Cassandra.
+
+## Kubernetes Support
+Check out the [dashboards/k8s-build](dashboards/k8s-build) directory for a guide on using this project along with Kubernetes.
+
+## FAQ
+  1. Where is the list of all Cassandra metrics?
+
+     The full list is located on [Apache Cassandra docs](https://cassandra.apache.org/doc/latest/operating/metrics.html) site.
+     The names are automatically changed from CamelCase to snake_case.
+
+     In the case of prometheus the metrics are further renamed based on [relabel config](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#relabel_config) which live in the
+     [prometheus.yaml](dashboards/prometheus/prometheus.yaml) file.
+
+  2. How can I filter out metrics I don't care about?
+
+     Please read the [metric-collector.yaml](config/metric-collector.yaml) section on how to add filtering rules.
+
+  3. What is the datalog? and what is it for?
+
+     The datalog is a space limited JSON based structured log of metrics and events which are optionally kept on each node.  
+     It can be useful to diagnose issues that come up with your cluster.  If you wish to use the logs yourself
+     there's a [script](scripts/datalog-parser.py) included to parse these logs which can be analyzed or piped
+     into [jq](https://stedolan.github.io/jq/).
+
+     Alternatively, DataStax offers free support for issues as part of our [keep calm](https://www.datastax.com/keepcalm)
+     initiative and these logs can help our support engineers help diagnose your problem.
+
+  4. Will the MCAC agent work on a Mac?
+
+     No. It can be made to but it's currently only supported on Linux based OS.
+
+## License
+
+Copyright DataStax, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
