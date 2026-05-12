@@ -21,6 +21,8 @@
 #   APPLY_CASSANDRA_CQL_NODEPORT=1 — after apply + bootstrap: kubectl apply optional-cassandra-0-cql-nodeport.yaml (local DBeaver/CQL)
 #   KUBECTL_APPLY_EXTRA_ARGS     — extra flags for kubectl apply (e.g. --validate=false); still requires a reachable API server
 #
+# MSSQL bootstrap Job requires image mcac-demo/mssql-tools:22.04 (imagePullPolicy:Never). Build first:
+#   deploy/k8s/scripts/build-mssql-tools-image.sh — or build-all-custom-images.sh. ErrImageNeverPull means missing local image.
 set -euo pipefail
 
 NS="${NS:-demo-hub}"
@@ -54,6 +56,9 @@ Environment:
   SKIP_PROMETHEUS=1        omit Prometheus forward if its pod is down
   APPLY_CASSANDRA_CQL_NODEPORT=1  apply deploy/k8s/optional-cassandra-0-cql-nodeport.yaml after stack is up (stop-start-all-k8s.sh sets this by default)
   KUBECTL_APPLY_EXTRA_ARGS        extra kubectl apply flags (e.g. --validate=false)
+
+Prerequisite (before start/restart bootstrap reaches MSSQL Job): local image mcac-demo/mssql-tools:22.04
+  build: deploy/k8s/scripts/build-mssql-tools-image.sh (or build-all-custom-images.sh). ErrImageNeverPull = image missing.
 EOF
   exit "${1:-0}"
 }

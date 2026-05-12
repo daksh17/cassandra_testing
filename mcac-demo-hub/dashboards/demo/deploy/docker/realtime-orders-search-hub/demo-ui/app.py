@@ -20,7 +20,7 @@ import psycopg
 import redis
 from cassandra.cluster import Cluster, UnresolvableContactPoints
 from cassandra.query import BatchStatement, ConsistencyLevel
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel, Field, field_validator, model_validator
 from pymongo import MongoClient
@@ -31,6 +31,7 @@ from trino.exceptions import TrinoConnectionError, TrinoUserError
 
 import postgres_logical_demo as pg_logical
 import postgres_faker_schema as pg_faker_schema
+import postgres_partition_demo as pg_partition
 import postgres_schema_clone as pg_schema_clone
 import kafka_lab
 import scenario
@@ -512,6 +513,7 @@ POSTGRES_BAR = """
     · <a href="/postgres">Overview</a>
     · <a href="/postgres/logical">Logical replication</a>
     · <a href="/postgres/faker-schema">Faker schema objects</a>
+    · <a href="/postgres/partitions">Partitions (partman + cron)</a>
   </div>
 """
 
@@ -2033,6 +2035,11 @@ POSTGRES_LANDING_PAGE = f"""<!DOCTYPE html>
       <p>Create templated tables, sequences, views, materialized views, SQL functions, and procedures — names/layout driven by Faker presets on <code>demo_logical_pub</code> or <code>demo_logical_sub</code>.</p>
       <span class="tag">DDL playground</span>
     </a>
+    <a class="tile" href="/postgres/partitions">
+      <h2>Partitions · partman + cron</h2>
+      <p>Declarative RANGE / LIST / HASH tables on database <code>demo</code>; RANGE uses <code>pg_partman</code>. Optional <code>pg_cron</code> schedules <code>run_maintenance_proc()</code>. Seed rows with Faker as role <code>demo</code>.</p>
+      <span class="tag">demo DB</span>
+    </a>
   </div>
   <ul class="more">
     <li><a href="/">Single order</a> — writes <code>demo_items</code> (plus other backends).</li>
@@ -2459,6 +2466,184 @@ inventory</textarea>
       fsOut.textContent = JSON.stringify(data, null, 2);
       const ok = r.ok && data && data.ok === true;
       st.textContent = ok ? "Faker insert OK." : "Faker insert failed — see JSON.";
+      st.className = ok ? "ok" : "err";
+    }});
+  </script>
+</body>
+</html>
+"""
+
+
+POSTGRES_PARTITION_PAGE = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Postgres partitions — hub demo</title>
+  <style>
+    :root {{ font-family: ui-sans-serif, system-ui, sans-serif; background: #0f1419; color: #e7e9ea; }}
+    body {{ max-width: 46rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.55; }}
+    a {{ color: #6cb5f4; }}
+    h1 {{ font-size: 1.35rem; font-weight: 600; }}
+    h2.sec {{ font-size: 1.05rem; font-weight: 600; margin: 1.35rem 0 0.45rem; }}
+    p.note {{ color: #8899a6; font-size: 0.9rem; }}
+    label {{ display: block; margin: 0.65rem 0 0.25rem; font-size: 0.85rem; color: #8899a6; }}
+    select, input[type="text"], input[type="number"] {{
+      max-width: 28rem; padding: 0.45rem; border-radius: 6px;
+      border: 1px solid #38444d; background: #16181c; color: #e7e9ea; box-sizing: border-box;
+    }}
+    input[type="number"] {{ width: 6rem; }}
+    button {{
+      background: #1d9bf0; color: #fff; border: 0; border-radius: 9999px;
+      padding: 0.55rem 1.15rem; font-size: 0.95rem; font-weight: 600; cursor: pointer; margin: 0.35rem 0.5rem 0 0;
+    }}
+    button.secondary {{ background: #38444d; }}
+    button:disabled {{ opacity: 0.5; cursor: not-allowed; }}
+    pre {{
+      background: #16181c; border: 1px solid #2f3336; border-radius: 8px;
+      padding: 1rem; overflow: auto; font-size: 0.78rem; max-height: 28rem; white-space: pre-wrap;
+    }}
+    pre.sql-preview {{ max-height: 36rem; }}
+    .ok {{ color: #7af87a; }} .err {{ color: #f66; }}
+    #st {{ margin-top: 0.75rem; font-size: 0.9rem; }}
+    .chk-row {{ margin: 0.45rem 0; font-size: 0.88rem; color: #e7e9ea; }}
+    .chk-row input {{ margin-right: 0.35rem; vertical-align: middle; }}
+    code {{ font-size: 0.88em; background: #252a30; padding: 0.08em 0.32em; border-radius: 4px; }}
+    .row-inline {{ display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; align-items: flex-end; margin-top: 0.35rem; }}
+    .row-inline label {{ margin: 0; }}
+  </style>
+</head>
+<body>
+  {NAV}
+  {POSTGRES_BAR}
+  <h1>PostgreSQL partitioning (demo DB)</h1>
+  <p class="note">Uses <code>POSTGRES_ADMIN_DSN</code> (must include password) against database <code>demo</code> for DDL and partman. Inserts use <code>POSTGRES_DSN</code> as the hub&apos;s application role (typically <code>demo</code>). RANGE tables register with <code>pg_partman</code>; LIST/HASH use fixed child partitions (cron runs maintenance globally but is a no-op for those parents).</p>
+  <h2 class="sec">SQL for current choices</h2>
+  <p class="note">Updates when you change strategy, cron checkbox, or expression. Schema for <code>create_parent</code> / <code>CALL run_maintenance_proc()</code> is resolved from <code>demo</code> when the hub can connect; otherwise the preview shows <code>&lt;partman_schema&gt;</code>.</p>
+  <pre id="pkSqlPreview" class="sql-preview">Loading…</pre>
+  <label for="pkKind">Partition strategy</label>
+  <select id="pkKind">
+    <option value="range">RANGE by <code>event_day</code> (partman, <code>1 month</code> interval)</option>
+    <option value="list">LIST by <code>channel</code></option>
+    <option value="hash">HASH by <code>shard_key</code> (4 partitions)</option>
+  </select>
+  <div class="chk-row">
+    <label><input type="checkbox" id="pkReplace"/> Replace existing demo tables (<code>hub_part_*</code>)</label>
+  </div>
+  <div class="chk-row">
+    <label><input type="checkbox" id="pkCron"/> Schedule <code>pg_cron</code> job for partman maintenance</label>
+  </div>
+  <label for="pkCronExpr">Cron expression (when scheduling)</label>
+  <input type="text" id="pkCronExpr" value="*/5 * * * *" maxlength="128" style="max-width:22rem"/>
+  <div class="row-inline">
+    <label>Seed rows on setup<br/><input type="number" id="pkSeed" min="0" max="200" value="24"/></label>
+    <label>Extra seed batch<br/><input type="number" id="pkExtraN" min="1" max="200" value="12"/></label>
+  </div>
+  <div style="margin-top:0.85rem">
+    <button type="button" id="pkSetup">Create / refresh partition demo</button>
+    <button type="button" class="secondary" id="pkStatus">Refresh status</button>
+    <button type="button" class="secondary" id="pkMaint">Run maintenance now</button>
+    <button type="button" class="secondary" id="pkUnCron">Remove cron job</button>
+    <button type="button" class="secondary" id="pkSeedBtn">Insert extra Faker rows</button>
+  </div>
+  <p id="st"></p>
+  <pre id="pkOut">Pick a strategy and run setup (admin DSN must reach <code>demo</code>).</pre>
+  <script>
+    const pkOut = document.getElementById("pkOut");
+    const pkSqlPreview = document.getElementById("pkSqlPreview");
+    const st = document.getElementById("st");
+    let pkSqlTimer = null;
+    async function refreshPkSql() {{
+      const params = new URLSearchParams({{
+        partition_kind: document.getElementById("pkKind").value,
+        cron_schedule: document.getElementById("pkCronExpr").value.trim() || "*/5 * * * *",
+        schedule_cron: document.getElementById("pkCron").checked ? "true" : "false",
+      }});
+      try {{
+        const r = await fetch(`/api/postgres/partition-demo/sql-preview?${{params}}`);
+        const data = await r.json().catch(() => ({{ detail: r.statusText }}));
+        if (!r.ok || !data || data.full_script === undefined) {{
+          pkSqlPreview.textContent = data.detail ? String(data.detail) : JSON.stringify(data, null, 2);
+          return;
+        }}
+        let hdr = "";
+        if (data.partman_schema_resolved)
+          hdr += `-- partman extension schema (resolved): ${{data.partman_schema_resolved}}\\n`;
+        else if (data.partman_schema_hint)
+          hdr += `-- ${{data.partman_schema_hint}}\\n`;
+        pkSqlPreview.textContent = hdr + data.full_script;
+      }} catch (e) {{
+        pkSqlPreview.textContent = String(e);
+      }}
+    }}
+    function schedulePkSql() {{
+      if (pkSqlTimer) clearTimeout(pkSqlTimer);
+      pkSqlTimer = setTimeout(refreshPkSql, 200);
+    }}
+    document.getElementById("pkKind").addEventListener("change", schedulePkSql);
+    document.getElementById("pkCron").addEventListener("change", schedulePkSql);
+    document.getElementById("pkCronExpr").addEventListener("input", schedulePkSql);
+    refreshPkSql();
+    async function pj(method, url, body) {{
+      const opt = {{ method, headers: {{}} }};
+      if (body !== undefined) {{
+        opt.headers["Content-Type"] = "application/json";
+        opt.body = JSON.stringify(body);
+      }}
+      const r = await fetch(url, opt);
+      const data = await r.json().catch(() => ({{ detail: r.statusText }}));
+      return {{ r, data }};
+    }}
+    document.getElementById("pkSetup").addEventListener("click", async () => {{
+      st.textContent = "Running setup…";
+      st.className = "";
+      const body = {{
+        partition_kind: document.getElementById("pkKind").value,
+        replace_existing: document.getElementById("pkReplace").checked,
+        seed_rows: Number(document.getElementById("pkSeed").value),
+        cron_schedule: document.getElementById("pkCronExpr").value.trim() || "*/5 * * * *",
+        schedule_cron: document.getElementById("pkCron").checked,
+      }};
+      const {{ r, data }} = await pj("POST", "/api/postgres/partition-demo/setup", body);
+      pkOut.textContent = JSON.stringify(data, null, 2);
+      const ok = r.ok && data && data.ok === true;
+      st.textContent = ok ? "Setup finished." : (data.detail || "Setup failed — see JSON.");
+      st.className = ok ? "ok" : "err";
+      refreshPkSql();
+    }});
+    document.getElementById("pkStatus").addEventListener("click", async () => {{
+      st.textContent = "Loading status…";
+      const {{ r, data }} = await pj("GET", "/api/postgres/partition-demo/status");
+      pkOut.textContent = JSON.stringify(data, null, 2);
+      st.textContent = r.ok ? "Status OK." : (data.detail || "Error");
+      st.className = r.ok ? "ok" : "err";
+    }});
+    document.getElementById("pkMaint").addEventListener("click", async () => {{
+      st.textContent = "Running maintenance…";
+      const {{ r, data }} = await pj("POST", "/api/postgres/partition-demo/run-maintenance", {{}});
+      pkOut.textContent = JSON.stringify(data, null, 2);
+      const ok = r.ok && data && data.ok === true;
+      st.textContent = ok ? "Maintenance OK." : (data.detail || "Failed");
+      st.className = ok ? "ok" : "err";
+    }});
+    document.getElementById("pkUnCron").addEventListener("click", async () => {{
+      st.textContent = "Removing cron…";
+      const {{ r, data }} = await pj("POST", "/api/postgres/partition-demo/remove-cron", {{}});
+      pkOut.textContent = JSON.stringify(data, null, 2);
+      const ok = r.ok && data && data.ok === true;
+      st.textContent = ok ? "Cron removed (if it existed)." : (data.detail || "Failed");
+      st.className = ok ? "ok" : "err";
+    }});
+    document.getElementById("pkSeedBtn").addEventListener("click", async () => {{
+      st.textContent = "Inserting…";
+      const body = {{
+        partition_kind: document.getElementById("pkKind").value,
+        n: Number(document.getElementById("pkExtraN").value),
+      }};
+      const {{ r, data }} = await pj("POST", "/api/postgres/partition-demo/seed", body);
+      pkOut.textContent = JSON.stringify(data, null, 2);
+      const ok = r.ok && data && data.ok === true;
+      st.textContent = ok ? "Seed OK." : (data.detail || "Failed");
       st.className = ok ? "ok" : "err";
     }});
   </script>
@@ -2989,6 +3174,19 @@ class PostgresLogicalFakerRowsBody(BaseModel):
     columns: list[PostgresLogicalCustomColumn] = Field(..., min_length=1, max_length=16)
     row_count: int = Field(6, ge=1, le=80)
     seed: int | None = Field(None, ge=0, le=2_147_483_647)
+
+
+class PostgresPartitionDemoSetupBody(BaseModel):
+    partition_kind: Literal["range", "list", "hash"] = "range"
+    replace_existing: bool = False
+    seed_rows: int = Field(default=20, ge=0, le=200)
+    cron_schedule: str = Field(default="*/5 * * * *", max_length=128)
+    schedule_cron: bool = False
+
+
+class PostgresPartitionDemoSeedBody(BaseModel):
+    partition_kind: Literal["range", "list", "hash"]
+    n: int = Field(default=10, ge=1, le=200)
 
 
 class PostgresFakerSchemaBody(BaseModel):
@@ -3744,6 +3942,11 @@ async def postgres_faker_schema_page():
     return HTMLResponse(POSTGRES_FAKER_SCHEMA_PAGE)
 
 
+@app.get("/postgres/partitions", response_class=HTMLResponse)
+async def postgres_partitions_page():
+    return HTMLResponse(POSTGRES_PARTITION_PAGE)
+
+
 @app.get("/postgres-logical")
 async def postgres_logical_legacy_redirect():
     """Old path; keep bookmarks working."""
@@ -4021,6 +4224,151 @@ async def api_postgres_faker_schema_multi_schema(body: PostgresFakerSchemaMultiS
         raise HTTPException(status_code=400, detail=str(e)) from e
     except psycopg.Error as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@app.get("/api/postgres/partition-demo/status")
+async def api_postgres_partition_demo_status():
+    cfg = get_runtime_config()
+    try:
+        return await asyncio.to_thread(
+            pg_partition.partition_demo_status,
+            cfg.postgres_admin_dsn,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except psycopg.Error as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"{type(e).__name__}: {e}",
+        ) from e
+
+
+@app.get("/api/postgres/partition-demo/sql-preview")
+async def api_postgres_partition_demo_sql_preview(
+    partition_kind: Literal["range", "list", "hash"] = Query("range"),
+    cron_schedule: str = Query("*/5 * * * *"),
+    schedule_cron: bool = Query(False),
+):
+    cfg = get_runtime_config()
+    try:
+        return await asyncio.to_thread(
+            pg_partition.partition_demo_sql_preview_for_admin,
+            cfg.postgres_admin_dsn,
+            partition_kind=partition_kind,
+            cron_schedule=cron_schedule.strip(),
+            schedule_cron=schedule_cron,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"{type(e).__name__}: {e}",
+        ) from e
+
+
+@app.post("/api/postgres/partition-demo/setup")
+async def api_postgres_partition_demo_setup(body: PostgresPartitionDemoSetupBody):
+    cfg = get_runtime_config()
+    pwd = _pg_password_from_dsn(cfg.postgres_admin_dsn)
+    if not pwd:
+        raise HTTPException(
+            status_code=500,
+            detail="POSTGRES_ADMIN_DSN must include a password (postgresql://user:pass@host/db)",
+        )
+    try:
+        return await asyncio.to_thread(
+            pg_partition.partition_demo_setup,
+            cfg.postgres_admin_dsn,
+            cfg.postgres_dsn,
+            partition_kind=body.partition_kind,
+            replace_existing=body.replace_existing,
+            seed_rows=body.seed_rows,
+            cron_schedule=body.cron_schedule.strip(),
+            schedule_cron=body.schedule_cron,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except psycopg.Error as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"{type(e).__name__}: {e}",
+        ) from e
+
+
+@app.post("/api/postgres/partition-demo/run-maintenance")
+async def api_postgres_partition_demo_run_maintenance():
+    cfg = get_runtime_config()
+    pwd = _pg_password_from_dsn(cfg.postgres_admin_dsn)
+    if not pwd:
+        raise HTTPException(
+            status_code=500,
+            detail="POSTGRES_ADMIN_DSN must include a password (postgresql://user:pass@host/db)",
+        )
+    try:
+        return await asyncio.to_thread(
+            pg_partition.partition_demo_run_maintenance,
+            cfg.postgres_admin_dsn,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except psycopg.Error as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"{type(e).__name__}: {e}",
+        ) from e
+
+
+@app.post("/api/postgres/partition-demo/remove-cron")
+async def api_postgres_partition_demo_remove_cron():
+    cfg = get_runtime_config()
+    pwd = _pg_password_from_dsn(cfg.postgres_admin_dsn)
+    if not pwd:
+        raise HTTPException(
+            status_code=500,
+            detail="POSTGRES_ADMIN_DSN must include a password (postgresql://user:pass@host/db)",
+        )
+    try:
+        return await asyncio.to_thread(
+            pg_partition.partition_demo_remove_cron,
+            cfg.postgres_admin_dsn,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except psycopg.Error as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"{type(e).__name__}: {e}",
+        ) from e
+
+
+@app.post("/api/postgres/partition-demo/seed")
+async def api_postgres_partition_demo_seed(body: PostgresPartitionDemoSeedBody):
+    cfg = get_runtime_config()
+    try:
+        return await asyncio.to_thread(
+            pg_partition.partition_demo_extra_seed,
+            cfg.postgres_dsn,
+            body.partition_kind,
+            body.n,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except psycopg.Error as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"{type(e).__name__}: {e}",
+        ) from e
 
 
 @app.get("/api/connections")

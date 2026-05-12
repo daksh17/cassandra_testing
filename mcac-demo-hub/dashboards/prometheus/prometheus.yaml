@@ -32,11 +32,19 @@ scrape_configs:
           - nodetool-exporter:9104
 
   # MongoDB: 9-node sharded demo (3 cfg + 3 shards tic/tac/toe + 3 mongos) via Percona exporter on mongos1.
+  # Normalize instance so Grafana dashboard variables match Prometheus (Kubernetes resolves the Service
+  # to a pod IP — default instance becomes e.g. 192.168.x.x:9216 and exact-match filters break).
   - job_name: "mongodb"
     scrape_interval: 15s
     scrape_timeout: 10s
     metrics_path: /metrics
     scheme: http
+    relabel_configs:
+      - action: replace
+        source_labels: [__address__]
+        regex: ".*"
+        target_label: instance
+        replacement: mongodb-exporter:9216
     static_configs:
       - targets:
           - mongodb-exporter:9216

@@ -116,6 +116,38 @@ ENV NSS_WRAPPER_GROUP=/opt/bitnami/mcac-nss/group
 COPY mcac-wal-archive.sh /opt/bitnami/scripts/mcac-wal-archive.sh
 RUN chmod 0755 /opt/bitnami/scripts/mcac-wal-archive.sh && chown 1001:0 /opt/bitnami/scripts/mcac-wal-archive.sh
 
+# pg_cron, pg_repack, pg_partman — compiled with Bitnami pg_config (same tree as repmgr).
+USER root
+ARG PG_CRON_VERSION=1.6.4
+ARG PG_REPACK_VERSION=1.5.2
+ARG PG_PARTMAN_VERSION=5.2.4
+RUN set -eux; \
+  PG_CONFIG=/opt/bitnami/postgresql/bin/pg_config; \
+  export PG_CONFIG; \
+  apt-get update; \
+  apt-get install -y --no-install-recommends \
+    ca-certificates curl \
+    build-essential \
+    liblz4-dev zlib1g-dev libssl-dev libreadline-dev libxslt1-dev; \
+  cd /tmp; \
+  curl -fsSL "https://github.com/citusdata/pg_cron/archive/refs/tags/v${PG_CRON_VERSION}.tar.gz" | tar xz; \
+  CRON_DIR="$(find /tmp -maxdepth 1 -type d -name 'pg_cron-*' | head -n1)"; \
+  cd "$CRON_DIR"; make; make install; cd /tmp; rm -rf "$CRON_DIR"; \
+  curl -fsSL "https://github.com/reorg/pg_repack/archive/refs/tags/ver_${PG_REPACK_VERSION}.tar.gz" | tar xz; \
+  REPACK_DIR="$(find /tmp -maxdepth 1 -type d -name 'pg_repack-*' | head -n1)"; \
+  cd "$REPACK_DIR"; make USE_PGXS=1; make USE_PGXS=1 install; cd /tmp; rm -rf "$REPACK_DIR"; \
+  curl -fsSL "https://github.com/pgpartman/pg_partman/archive/refs/tags/v${PG_PARTMAN_VERSION}.tar.gz" | tar xz; \
+  PARTMAN_DIR="$(find /tmp -maxdepth 1 -type d -name 'pg_partman-*' | head -n1)"; \
+  cd "$PARTMAN_DIR"; make install; cd /tmp; rm -rf "$PARTMAN_DIR"; \
+  PKGLIB="$("$PG_CONFIG" --pkglibdir)"; \
+  SHARE="$("$PG_CONFIG" --sharedir)"; \
+  chown -R 1001:1001 "$PKGLIB" "${SHARE}/extension" /opt/bitnami/postgresql/share/extension \
+    /opt/bitnami/postgresql/bin/pg_repack 2>/dev/null || true; \
+  apt-get purge -y build-essential liblz4-dev zlib1g-dev libssl-dev libreadline-dev libxslt1-dev; \
+  apt-get install -y --no-install-recommends liblz4-1; \
+  apt-get autoremove -y; \
+  rm -rf /var/lib/apt/lists/*
+
 # Tiny vi/vim for kubectl exec debugging (optional).
 RUN apt-get update \
   && apt-get install -y --no-install-recommends vim-tiny \

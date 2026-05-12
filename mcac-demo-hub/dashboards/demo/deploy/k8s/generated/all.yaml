@@ -19109,9 +19109,9 @@ spec:
             - name: POSTGRESQL_DATABASE
               value: "demo"
             - name: POSTGRESQL_SHARED_PRELOAD_LIBRARIES
-              value: "repmgr,pgaudit,pg_stat_statements"
+              value: "repmgr,pgaudit,pg_stat_statements,pg_cron"
             - name: POSTGRESQL_EXTRA_FLAGS
-              value: "-c wal_level=logical -c max_replication_slots=8 -c max_wal_senders=8 -c pg_stat_statements.max=10000 -c pg_stat_statements.track=all"
+              value: "-c wal_level=logical -c max_replication_slots=8 -c max_wal_senders=8 -c pg_stat_statements.max=10000 -c pg_stat_statements.track=all -c cron.database_name=postgres"
             - name: POSTGRESQL_REPLICATION_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -19221,9 +19221,9 @@ spec:
             - name: POSTGRESQL_MASTER_PORT_NUMBER
               value: "5432"
             - name: POSTGRESQL_SHARED_PRELOAD_LIBRARIES
-              value: "repmgr,pgaudit,pg_stat_statements"
+              value: "repmgr,pgaudit,pg_stat_statements,pg_cron"
             - name: POSTGRESQL_EXTRA_FLAGS
-              value: "-c wal_level=replica -c primary_slot_name=pgdemo_phys_replica_1 -c pg_stat_statements.max=10000 -c pg_stat_statements.track=all"
+              value: "-c wal_level=replica -c primary_slot_name=pgdemo_phys_replica_1 -c pg_stat_statements.max=10000 -c pg_stat_statements.track=all -c cron.database_name=postgres"
             - name: POSTGRESQL_REPLICATION_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -19333,9 +19333,9 @@ spec:
             - name: POSTGRESQL_MASTER_PORT_NUMBER
               value: "5432"
             - name: POSTGRESQL_SHARED_PRELOAD_LIBRARIES
-              value: "repmgr,pgaudit,pg_stat_statements"
+              value: "repmgr,pgaudit,pg_stat_statements,pg_cron"
             - name: POSTGRESQL_EXTRA_FLAGS
-              value: "-c wal_level=replica -c primary_slot_name=pgdemo_phys_replica_2 -c pg_stat_statements.max=10000 -c pg_stat_statements.track=all"
+              value: "-c wal_level=replica -c primary_slot_name=pgdemo_phys_replica_2 -c pg_stat_statements.max=10000 -c pg_stat_statements.track=all -c cron.database_name=postgres"
             - name: POSTGRESQL_REPLICATION_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -19477,6 +19477,9 @@ data:
       psql -h "$PGHOST" -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE repmgr;"
     fi
     psql -h "$PGHOST" -U postgres -d repmgr -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS repmgr;"
+    psql -h "$PGHOST" -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS pg_cron;"
+    psql -h "$PGHOST" -U postgres -d demo -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS pg_repack;"
+    psql -h "$PGHOST" -U postgres -d demo -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS pg_partman;"
     psql -h "$PGHOST" -U postgres -d demo -v ON_ERROR_STOP=1 -f /scripts/04-scenario-hub-schema-indexes.sql
     echo "postgres bootstrap done."
 
