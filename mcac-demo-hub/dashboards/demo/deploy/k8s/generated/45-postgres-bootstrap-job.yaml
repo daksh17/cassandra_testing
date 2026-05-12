@@ -23,6 +23,9 @@ data:
       psql -h "$PGHOST" -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE repmgr;"
     fi
     psql -h "$PGHOST" -U postgres -d repmgr -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS repmgr;"
+    psql -h "$PGHOST" -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS pg_cron;"
+    psql -h "$PGHOST" -U postgres -d demo -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS pg_repack;"
+    psql -h "$PGHOST" -U postgres -d demo -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS pg_partman;"
     psql -h "$PGHOST" -U postgres -d demo -v ON_ERROR_STOP=1 -f /scripts/04-scenario-hub-schema-indexes.sql
     echo "postgres bootstrap done."
 

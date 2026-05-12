@@ -711,7 +711,7 @@ spec:
       containers:
         - name: run
           image: mcac-demo/mssql-tools:22.04
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Never
           command:
             - "/bin/bash"
             - "/scripts/chain.sh"

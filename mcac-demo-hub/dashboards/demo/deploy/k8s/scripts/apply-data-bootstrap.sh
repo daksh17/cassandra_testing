@@ -48,8 +48,39 @@ kubectl wait --for=condition=complete job/mongo-demo-bootstrap -n "$NS" --timeou
 echo "Waiting for Kafka Connect (MSSQL connector registration)..."
 kubectl rollout status deployment/kafka-connect -n "$NS" --timeout=600s
 
+require_local_image_mssql_tools() {
+  local img="mcac-demo/mssql-tools:22.04"
+  if ! command -v docker &>/dev/null; then
+    echo "WARN: docker not in PATH — cannot verify $img locally. Job uses imagePullPolicy:Never;" >&2
+    echo "      if the Job fails with ErrImageNeverPull, build: deploy/k8s/scripts/build-mssql-tools-image.sh" >&2
+    return 0
+  fi
+  if docker image inspect "$img" &>/dev/null; then
+    return 0
+  fi
+  cat >&2 <<EOF
+ERROR: Docker image $img not found locally.
+
+Job mssql-demo-bootstrap uses imagePullPolicy: Never (no registry pull). Build the image on this machine
+(local Docker daemon — OrbStack / Docker Desktop Kubernetes reuse those images):
+
+  $(dirname "$0")/build-mssql-tools-image.sh
+
+Or build all demo-hub custom images:
+
+  $(dirname "$0")/build-all-custom-images.sh
+
+Then:
+
+  kubectl delete job mssql-demo-bootstrap -n $NS --ignore-not-found=true
+  kubectl apply -f $GEN/62-mssql.yaml
+  kubectl wait --for=condition=complete job/mssql-demo-bootstrap -n $NS --timeout=3600s
+EOF
+  exit 1
+}
+
 echo "Applying MSSQL schema + connector registration Job..."
-echo "  (Requires image mcac-demo/mssql-tools:22.04 — build: deploy/k8s/scripts/build-mssql-tools-image.sh)"
+require_local_image_mssql_tools
 kubectl delete job mssql-demo-bootstrap -n "$NS" --ignore-not-found=true
 kubectl apply -f "$GEN/62-mssql.yaml"
 kubectl wait --for=condition=complete job/mssql-demo-bootstrap -n "$NS" --timeout=3600s

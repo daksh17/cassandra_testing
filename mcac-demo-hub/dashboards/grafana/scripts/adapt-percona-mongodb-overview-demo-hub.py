@@ -10,6 +10,9 @@ Prometheus static_config labels (see deploy/k8s generated scrape):
 Usage:
   curl -sSf https://grafana.com/api/dashboards/20192/revisions/1/download | \\
     python3 adapt-percona-mongodb-overview-demo-hub.py -o ../generated-dashboards/mongodb-overview-percona-demo-hub.json
+
+Then append mongos/sharding panels (same directory):
+  python3 extend-percona-mongodb-overview-mongos-panels.py
 """
 from __future__ import annotations
 
@@ -20,7 +23,7 @@ from typing import Any
 
 # Use regex matcher so template "All" (allValue .*) matches every mongo_cluster; equality would
 # produce mongo_cluster="All" and return no data.
-LABELS = 'job="mongodb",mongo_topology="sharded",mongo_cluster=~"$cluster",instance="$host"'
+LABELS = 'job="mongodb",mongo_topology="sharded",mongo_cluster=~"$mdb_cluster",instance="$mdb_instance"'
 
 
 def fix_expr(s: str) -> str:
@@ -36,6 +39,17 @@ def walk_panels(panels: list[dict[str, Any]] | None) -> None:
         for t in p.get("targets") or []:
             if t.get("expr"):
                 t["expr"] = fix_expr(t["expr"])
+
+
+def retemplate_grafana_vars(panels: list[dict[str, Any]] | None) -> None:
+    """Percona uses $cluster/$host; template names become mdb_cluster/mdb_instance."""
+    for p in panels or []:
+        if "panels" in p:
+            retemplate_grafana_vars(p["panels"])
+        for t in p.get("targets") or []:
+            ex = t.get("expr")
+            if isinstance(ex, str):
+                t["expr"] = ex.replace("$cluster", "$mdb_cluster").replace("$host", "$mdb_instance")
 
 
 def main() -> None:
@@ -57,9 +71,11 @@ def main() -> None:
         d = json.loads(sys.stdin.read())
 
     walk_panels(d.get("panels"))
+    retemplate_grafana_vars(d.get("panels"))
 
     for v in d.get("templating", {}).get("list", []):
         if v.get("name") == "cluster":
+            v["name"] = "mdb_cluster"
             v["query"] = (
                 'label_values(mongodb_up{job="mongodb",mongo_topology="sharded"}, mongo_cluster)'
             )
@@ -71,11 +87,14 @@ def main() -> None:
                 "value": "tictactoe",
             }
         elif v.get("name") == "host":
+            v["name"] = "mdb_instance"
             v["query"] = (
                 'label_values(mongodb_up{job="mongodb",mongo_topology="sharded",'
-                'mongo_cluster=~"$cluster"}, instance)'
+                'mongo_cluster=~"$mdb_cluster"}, instance)'
             )
             v["label"] = "Exporter instance"
+            v["regex"] = "9216"
+            v["definition"] = v["query"]
 
     for v in d.get("templating", {}).get("list", []):
         if v.get("name") == "datasource" and v.get("type") == "datasource":

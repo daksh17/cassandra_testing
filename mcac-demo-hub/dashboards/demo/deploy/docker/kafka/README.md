@@ -41,5 +41,6 @@ docker compose exec kafka kafka-topics --bootstrap-server kafka:29092 --list
 
 ## Further reading
 
+- Kafka Connect **REST / `curl`** reference and demo connector names: **[`../kafka-connect-register/README.md`](../kafka-connect-register/README.md)**.
 - Connector registration and topics: **[`../postgres-kafka/README.md`](../postgres-kafka/README.md)**, **[`../mongo-kafka/README.md`](../mongo-kafka/README.md)**.
 - Observability: **[`../observability/README.md`](../observability/README.md)**.

@@ -1713,11 +1713,12 @@ def postgres_ha() -> str:
         ("POSTGRESQL_REPLICATION_USER", "replicator"),
         ("POSTGRESQL_USERNAME", "postgres"),
         ("POSTGRESQL_DATABASE", "demo"),
-        ("POSTGRESQL_SHARED_PRELOAD_LIBRARIES", "repmgr,pgaudit,pg_stat_statements"),
+        ("POSTGRESQL_SHARED_PRELOAD_LIBRARIES", "repmgr,pgaudit,pg_stat_statements,pg_cron"),
         (
             "POSTGRESQL_EXTRA_FLAGS",
             "-c wal_level=logical -c max_replication_slots=8 -c max_wal_senders=8 "
-            "-c pg_stat_statements.max=10000 -c pg_stat_statements.track=all",
+            "-c pg_stat_statements.max=10000 -c pg_stat_statements.track=all "
+            "-c cron.database_name=postgres",
         ),
     ]
     docs = [
@@ -1738,14 +1739,15 @@ def postgres_ha() -> str:
         ("POSTGRESQL_REPLICATION_USER", "replicator"),
         ("POSTGRESQL_MASTER_HOST", "postgresql-primary"),
         ("POSTGRESQL_MASTER_PORT_NUMBER", "5432"),
-        ("POSTGRESQL_SHARED_PRELOAD_LIBRARIES", "repmgr,pgaudit,pg_stat_statements"),
+        ("POSTGRESQL_SHARED_PRELOAD_LIBRARIES", "repmgr,pgaudit,pg_stat_statements,pg_cron"),
     ]
     for slot, rname in ((1, "postgresql-replica-1"), (2, "postgresql-replica-2")):
         env = rep_base + [
             (
                 "POSTGRESQL_EXTRA_FLAGS",
                 f"-c wal_level=replica -c primary_slot_name=pgdemo_phys_replica_{slot} "
-                f"-c pg_stat_statements.max=10000 -c pg_stat_statements.track=all",
+                f"-c pg_stat_statements.max=10000 -c pg_stat_statements.track=all "
+                f"-c cron.database_name=postgres",
             ),
         ]
         docs.append(
@@ -1940,6 +1942,9 @@ if ! psql -h "$PGHOST" -U postgres -d postgres -v ON_ERROR_STOP=1 -tc "SELECT 1 
   psql -h "$PGHOST" -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE repmgr;"
 fi
 psql -h "$PGHOST" -U postgres -d repmgr -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS repmgr;"
+psql -h "$PGHOST" -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS pg_cron;"
+psql -h "$PGHOST" -U postgres -d demo -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS pg_repack;"
+psql -h "$PGHOST" -U postgres -d demo -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS pg_partman;"
 psql -h "$PGHOST" -U postgres -d demo -v ON_ERROR_STOP=1 -f /scripts/04-scenario-hub-schema-indexes.sql
 echo "postgres bootstrap done."
 """

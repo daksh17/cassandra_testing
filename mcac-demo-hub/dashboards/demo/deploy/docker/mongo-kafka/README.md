@@ -48,6 +48,8 @@ Full table: **[`../../README.md` → Hub scenario indexes](../../README.md#hub-s
 3. **`mongo-sink-demo`** **consumes** that topic, runs **ExtractNewDocumentState**, and **writes** documents into **`demo.demo_items_from_kafka`** via **`mongos`**.
 4. **Prometheus** scrapes **`mongodb-exporter`** (targeting **`mongo-mongos1`**) and **kafka-exporter**; **Grafana** can show **`mongodb-tictactoe-detailed.json`** (Mongo sharding, per-shard sizes, dbStats) and **`kafka-cluster-overview.json`** (Kafka exporter metrics); both live under **`../../../../grafana/generated-dashboards/`**.
 
+**Why “MongoDB Overview (Percona, demo-hub labels)” often shows no data:** That dashboard’s panels use **`mongodb_ss_*`** metrics from **mongod `serverStatus`** (e.g. **`mongodb_ss_opcounters`**). In this repo **`mongodb-exporter`** uses **`MONGODB_URI=…mongo-mongos1…`** (a **mongos** router). On mongos, many **`mongodb_ss_*`** series are **missing or empty**, while **`mongodb_up`** still works — so variables like **`Mongo cluster`** / **`Exporter Instance`** can populate but graphs stay **No data**. Prefer **`mongodb-tictactoe-detailed`** for mongos/sharded visibility here; use the Percona Overview only if you point an exporter at **shard primaries (mongod)** with compatible labels.
+
 ### Component diagram
 
 ![MongoDB sharded cluster, Kafka, Kafka Connect, prepare job, observability](diagrams/mongo-workflow-components.svg)

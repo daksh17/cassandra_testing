@@ -11,6 +11,14 @@
 # while you fix it: SKIP_PROMETHEUS=1 ./deploy/k8s/scripts/port-forward-demo-hub.sh
 # MSSQL pods down: SKIP_MSSQL=1 ./deploy/k8s/scripts/port-forward-demo-hub.sh
 # Trino not deployed or pod pending: SKIP_TRINO=1 ./deploy/k8s/scripts/port-forward-demo-hub.sh
+# Kafka broker PLAINTEXT :9092: forwarded to LOCAL_KAFKA_BROKER_PORT (default 9092). If Docker Compose
+# Kafka already uses 9092 on the host, use SKIP_KAFKA_BROKER=1 or LOCAL_KAFKA_BROKER_PORT=19092
+#
+# Kafka UI / clients (common pitfalls):
+# - Broker advertises PLAINTEXT://kafka:9092 — add "127.0.0.1 kafka" to Mac /etc/hosts for host-native clients.
+# - Kafka UI running IN Docker must NOT use 127.0.0.1:9092 (that is the container itself). Use bootstrap
+#   host.docker.internal:9092 (OrbStack / Docker Desktop). Map kafka to the host so metadata works, e.g.
+#   Compose: extra_hosts: ["kafka:host-gateway"]
 #
 # Cassandra: forward **pod/cassandra-0**, not svc/cassandra — the Service load-balances 3 replicas;
 # CQL + port-forward (socat) often hits "Connection reset by peer" / lost connection when the
@@ -25,7 +33,7 @@
 #   DEMO_HUB_K8S=1 ./deploy/docker/kafka-connect-register/register-all.sh http://127.0.0.1:8083
 #
 # Override local ports if something is already bound, e.g.:
-#   LOCAL_PG_PORT=15432 LOCAL_PROM_PORT=19090 LOCAL_REDIS_PORT=16379 LOCAL_KAFKA_CONNECT_PORT=18083 ./deploy/k8s/scripts/port-forward-demo-hub.sh
+#   LOCAL_PG_PORT=15432 LOCAL_PROM_PORT=19090 LOCAL_REDIS_PORT=16379 LOCAL_KAFKA_CONNECT_PORT=18083 LOCAL_KAFKA_BROKER_PORT=19092 ./deploy/k8s/scripts/port-forward-demo-hub.sh
 # SQL Server (publisher + subscriber): default localhost 14333 / 14334 → pod :1433 (override LOCAL_MSSQL_*_PORT).
 set -euo pipefail
 NS="${NS:-demo-hub}"
@@ -41,6 +49,7 @@ LOCAL_GRAFANA_PORT="${LOCAL_GRAFANA_PORT:-3000}"
 LOCAL_PROM_PORT="${LOCAL_PROM_PORT:-9090}"
 LOCAL_HUB_UI_PORT="${LOCAL_HUB_UI_PORT:-8888}"
 LOCAL_KAFKA_CONNECT_PORT="${LOCAL_KAFKA_CONNECT_PORT:-8083}"
+LOCAL_KAFKA_BROKER_PORT="${LOCAL_KAFKA_BROKER_PORT:-9092}"
 # Hub UI / tools use localhost:9200 / :5601 for OpenSearch REST + Dashboards (same defaults as Compose).
 LOCAL_OPENSEARCH_PORT="${LOCAL_OPENSEARCH_PORT:-9200}"
 LOCAL_OS_DASHBOARDS_PORT="${LOCAL_OS_DASHBOARDS_PORT:-5601}"
@@ -66,6 +75,8 @@ echo "  Redis         127.0.0.1:${LOCAL_REDIS_PORT}   (password demoredispass; U
 echo "  Grafana       http://127.0.0.1:${LOCAL_GRAFANA_PORT}/"
 echo "  Prometheus    http://127.0.0.1:${LOCAL_PROM_PORT}/"
 echo "  Hub demo UI   http://127.0.0.1:${LOCAL_HUB_UI_PORT}/  (Faker + map orders: /scenario step 3)"
+echo "  Kafka broker    127.0.0.1:${LOCAL_KAFKA_BROKER_PORT}  (bootstrap from Mac; add /etc/hosts: 127.0.0.1 kafka)"
+echo "                  Kafka UI in Docker: bootstrap host.docker.internal:${LOCAL_KAFKA_BROKER_PORT} + extra_hosts kafka:host-gateway"
 echo "  Kafka Connect http://127.0.0.1:${LOCAL_KAFKA_CONNECT_PORT}/  (REST; list: curl -s http://127.0.0.1:${LOCAL_KAFKA_CONNECT_PORT}/connectors)"
 echo "  Trino         http://127.0.0.1:${LOCAL_TRINO_PORT}/  (coordinator UI; federated SQL runner on hub: http://127.0.0.1:${LOCAL_HUB_UI_PORT}/trino)"
 echo "  OpenSearch    http://127.0.0.1:${LOCAL_OPENSEARCH_PORT}/  (REST API; e.g. curl -s http://127.0.0.1:${LOCAL_OPENSEARCH_PORT}/_cluster/health)"
@@ -92,6 +103,11 @@ else
   kubectl -n "$NS" port-forward "svc/prometheus" "${LOCAL_PROM_PORT}:9090" &
 fi
 kubectl -n "$NS" port-forward "svc/hub-demo-ui" "${LOCAL_HUB_UI_PORT}:8888" &
+if [[ "${SKIP_KAFKA_BROKER:-}" == "1" ]]; then
+  echo "SKIP_KAFKA_BROKER=1 — not forwarding svc/kafka:9092 (avoid clash with host Compose Kafka)." >&2
+else
+  kubectl -n "$NS" port-forward "svc/kafka" "${LOCAL_KAFKA_BROKER_PORT}:9092" &
+fi
 kubectl -n "$NS" port-forward "svc/kafka-connect" "${LOCAL_KAFKA_CONNECT_PORT}:8083" &
 if [[ "${SKIP_TRINO:-}" == "1" ]]; then
   echo "SKIP_TRINO=1 — not forwarding svc/trino (omit SKIP_TRINO once Trino is applied and Ready)." >&2

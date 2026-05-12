@@ -247,14 +247,15 @@ services:
       POSTGRESQL_USERNAME: postgres
       POSTGRESQL_PASSWORD: postgres
       POSTGRESQL_DATABASE: demo
-      # repmgr first (extension); Bitnami defaults include pgaudit + pg_stat_statements.
-      POSTGRESQL_SHARED_PRELOAD_LIBRARIES: repmgr,pgaudit,pg_stat_statements
+      # repmgr first; pg_cron must be in shared_preload_libraries (catalog replicated to replicas).
+      POSTGRESQL_SHARED_PRELOAD_LIBRARIES: repmgr,pgaudit,pg_stat_statements,pg_cron
       POSTGRESQL_EXTRA_FLAGS: >-
         -c wal_level=logical
         -c max_replication_slots=8
         -c max_wal_senders=8
         -c pg_stat_statements.max=10000
         -c pg_stat_statements.track=all
+        -c cron.database_name=postgres
     volumes:
       - postgres_primary_data:/bitnami/postgresql
       - "./deploy/docker/postgres-kafka/01-init-debezium.sql:/docker-entrypoint-initdb.d/01-init-debezium.sql:ro"
@@ -263,12 +264,40 @@ services:
       - "./deploy/docker/postgres-kafka/03-pg-stat-statements.sh:/docker-entrypoint-initdb.d/03-pg-stat-statements.sh:ro"
       - "./deploy/docker/postgres-kafka/04-scenario-hub-schema-indexes.sql:/docker-entrypoint-initdb.d/04-scenario-hub-schema-indexes.sql:ro"
       - "./deploy/docker/postgres-kafka/05-repmgr-extension.sh:/docker-entrypoint-initdb.d/05-repmgr-extension.sh:ro"
+      - "./deploy/docker/postgres-kafka/06-partman-repack-cron-extensions.sh:/docker-entrypoint-initdb.d/06-partman-repack-cron-extensions.sh:ro"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U demo -d demo -h 127.0.0.1 -p 5432"]
       interval: 5s
       timeout: 5s
       retries: 20
       start_period: 30s
+    networks:
+      - demo_net
+
+  # Bitnami runs docker-entrypoint-initdb.d only on first empty PGDATA; existing volumes skip it.
+  # This one-shot (restart: "no") applies CREATE EXTENSION idempotently after primary is healthy.
+  postgresql-extensions-ensure:
+    <<: *postgresql_repmgr
+    restart: "no"
+    depends_on:
+      postgresql-primary:
+        condition: service_healthy
+    environment:
+      PGHOST: postgresql-primary
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    entrypoint: ["/bin/bash", "-lc"]
+    command:
+      - |
+        set -euo pipefail
+        echo "postgresql-extensions-ensure: CREATE EXTENSION IF NOT EXISTS (pg_cron on postgres, pg_repack/pg_partman on demo)"
+        /opt/bitnami/postgresql/bin/psql -h "$$PGHOST" -p "$$PGPORT" -U "$$PGUSER" -d postgres -v ON_ERROR_STOP=1 \
+          -c "CREATE EXTENSION IF NOT EXISTS pg_cron;"
+        /opt/bitnami/postgresql/bin/psql -h "$$PGHOST" -p "$$PGPORT" -U "$$PGUSER" -d demo -v ON_ERROR_STOP=1 \
+          -c "CREATE EXTENSION IF NOT EXISTS pg_repack;" \
+          -c "CREATE EXTENSION IF NOT EXISTS pg_partman;"
+        echo "postgresql-extensions-ensure: OK"
     networks:
       - demo_net
 
@@ -286,16 +315,19 @@ services:
       POSTGRESQL_USERNAME: postgres
       POSTGRESQL_PASSWORD: postgres
       # Physical replication slot on primary (must exist before standby connects; see 02-physical-replication-slots.sh).
-      POSTGRESQL_SHARED_PRELOAD_LIBRARIES: repmgr,pgaudit,pg_stat_statements
+      POSTGRESQL_SHARED_PRELOAD_LIBRARIES: repmgr,pgaudit,pg_stat_statements,pg_cron
       POSTGRESQL_EXTRA_FLAGS: >-
         -c primary_slot_name=pgdemo_phys_replica_1
         -c pg_stat_statements.max=10000
         -c pg_stat_statements.track=all
+        -c cron.database_name=postgres
     volumes:
       - postgres_replica1_data:/bitnami/postgresql
     depends_on:
       postgresql-primary:
         condition: service_healthy
+      postgresql-extensions-ensure:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U demo -d demo -h 127.0.0.1 -p 5432"]
       interval: 5s
@@ -318,16 +350,19 @@ services:
       POSTGRESQL_MASTER_PORT_NUMBER: "5432"
       POSTGRESQL_USERNAME: postgres
       POSTGRESQL_PASSWORD: postgres
-      POSTGRESQL_SHARED_PRELOAD_LIBRARIES: repmgr,pgaudit,pg_stat_statements
+      POSTGRESQL_SHARED_PRELOAD_LIBRARIES: repmgr,pgaudit,pg_stat_statements,pg_cron
       POSTGRESQL_EXTRA_FLAGS: >-
         -c primary_slot_name=pgdemo_phys_replica_2
         -c pg_stat_statements.max=10000
         -c pg_stat_statements.track=all
+        -c cron.database_name=postgres
     volumes:
       - postgres_replica2_data:/bitnami/postgresql
     depends_on:
       postgresql-primary:
         condition: service_healthy
+      postgresql-extensions-ensure:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U demo -d demo -h 127.0.0.1 -p 5432"]
       interval: 5s
