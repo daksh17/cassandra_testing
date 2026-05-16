@@ -1,0 +1,32 @@
+# Demo-hub in-cluster Oracle (service: oracle, PDB FREEPDB1).
+# Use with: export TNS_ADMIN=/etc/oracle/network/admin
+#           ORACLE_DSN=dbi:Oracle:DEMO_ORACLE   (in ora2pg.conf)
+
+DEMO_ORACLE =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = oracle)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = FREEPDB1)
+    )
+  )
+
+FREEPDB1 =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = oracle)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = FREEPDB1)
+    )
+  )
+
+# Port-forward from laptop (after deploy/k8s/scripts/port-forward-demo-hub.sh):
+#   LOCAL_ORACLE_PORT=16330
+DEMO_ORACLE_LOCAL =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = 127.0.0.1)(PORT = 16330))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = FREEPDB1)
+    )
+  )
